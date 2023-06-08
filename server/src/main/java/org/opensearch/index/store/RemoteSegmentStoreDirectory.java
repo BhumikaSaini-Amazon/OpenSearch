@@ -11,6 +11,8 @@ package org.opensearch.index.store;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.apache.lucene.codecs.CodecUtil;
+import org.apache.lucene.index.SegmentCommitInfo;
+import org.apache.lucene.index.SegmentInfo;
 import org.apache.lucene.index.SegmentInfos;
 import org.apache.lucene.store.ByteBuffersDataOutput;
 import org.apache.lucene.store.ByteBuffersIndexOutput;
@@ -19,8 +21,10 @@ import org.apache.lucene.store.FilterDirectory;
 import org.apache.lucene.store.IOContext;
 import org.apache.lucene.store.IndexInput;
 import org.apache.lucene.store.IndexOutput;
+import org.apache.lucene.util.Version;
 import org.opensearch.common.UUIDs;
 import org.opensearch.common.io.VersionedCodecStreamWrapper;
+import org.opensearch.common.lucene.Lucene;
 import org.opensearch.common.lucene.store.ByteArrayIndexInput;
 import org.opensearch.index.store.lockmanager.FileLockInfo;
 import org.opensearch.index.store.lockmanager.RemoteStoreCommitLevelLockManager;
@@ -203,6 +207,7 @@ public final class RemoteSegmentStoreDirectory extends FilterDirectory implement
         private final String uploadedFilename;
         private final String checksum;
         private final long length;
+        private Version writtenBy;
 
         UploadedSegmentMetadata(String originalFilename, String uploadedFilename, String checksum, long length) {
             this.originalFilename = originalFilename;
@@ -213,7 +218,12 @@ public final class RemoteSegmentStoreDirectory extends FilterDirectory implement
 
         @Override
         public String toString() {
-            return String.join(SEPARATOR, originalFilename, uploadedFilename, checksum, String.valueOf(length));
+            String metadataStr = String.join(SEPARATOR, originalFilename, uploadedFilename, checksum, String.valueOf(length));
+            if (writtenBy != null) {
+                metadataStr += SEPARATOR + writtenBy;
+            }
+
+            return metadataStr;
         }
 
         public String getChecksum() {
@@ -226,11 +236,24 @@ public final class RemoteSegmentStoreDirectory extends FilterDirectory implement
 
         public static UploadedSegmentMetadata fromString(String uploadedFilename) {
             String[] values = uploadedFilename.split(SEPARATOR);
-            return new UploadedSegmentMetadata(values[0], values[1], values[2], Long.parseLong(values[3]));
+            UploadedSegmentMetadata metadata = new UploadedSegmentMetadata(values[0], values[1], values[2], Long.parseLong(values[3]));
+            if (values.length == 5) {
+                metadata.setWrittenBy(values[4]);
+            }
+
+            return metadata;
         }
 
         public String getOriginalFilename() {
             return originalFilename;
+        }
+
+        public void setWrittenBy(String writtenBy) {
+            this.writtenBy = Lucene.parseVersionLenient(writtenBy, Version.LATEST);
+        }
+
+        public void setWrittenBy(Version writtenBy) {
+            this.writtenBy = writtenBy;
         }
     }
 
@@ -496,10 +519,27 @@ public final class RemoteSegmentStoreDirectory extends FilterDirectory implement
             );
             try {
                 IndexOutput indexOutput = storeDirectory.createOutput(metadataFilename, IOContext.DEFAULT);
+                List<SegmentCommitInfo> infos = segmentInfosSnapshot.asList();
+                Map<String, Version> segmentToLuceneVersion = new HashMap<>();
+                for (SegmentCommitInfo segmentCommitInfo : infos) {
+                    SegmentInfo info = segmentCommitInfo.info;
+                    Set<String> segFiles = info.files();
+                    for (String file : segFiles) {
+                        segmentToLuceneVersion.put(file, info.getVersion());
+                    }
+                }
+
                 Map<String, String> uploadedSegments = new HashMap<>();
                 for (String file : segmentFiles) {
                     if (segmentsUploadedToRemoteStore.containsKey(file)) {
-                        uploadedSegments.put(file, segmentsUploadedToRemoteStore.get(file).toString());
+                        UploadedSegmentMetadata metadata = segmentsUploadedToRemoteStore.get(file);
+                        if (segmentToLuceneVersion.containsKey(metadata.originalFilename)) {
+                            metadata.setWrittenBy(segmentToLuceneVersion.get(metadata.originalFilename));
+                        } else if (metadata.originalFilename.equals(segmentInfosSnapshot.getSegmentsFileName())) {
+                            metadata.setWrittenBy(segmentInfosSnapshot.getCommitLuceneVersion());
+                        }
+
+                        uploadedSegments.put(file, metadata.toString());
                     } else {
                         throw new NoSuchFileException(file);
                     }
