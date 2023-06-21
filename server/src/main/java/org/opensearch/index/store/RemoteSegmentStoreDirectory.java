@@ -11,6 +11,7 @@ package org.opensearch.index.store;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.apache.lucene.codecs.CodecUtil;
+import org.apache.lucene.index.CorruptIndexException;
 import org.apache.lucene.index.SegmentCommitInfo;
 import org.apache.lucene.index.SegmentInfo;
 import org.apache.lucene.index.SegmentInfos;
@@ -517,9 +518,8 @@ public final class RemoteSegmentStoreDirectory extends FilterDirectory implement
             );
             try {
                 IndexOutput indexOutput = storeDirectory.createOutput(metadataFilename, IOContext.DEFAULT);
-                List<SegmentCommitInfo> infos = segmentInfosSnapshot.asList();
                 Map<String, Version> segmentToLuceneVersion = new HashMap<>();
-                for (SegmentCommitInfo segmentCommitInfo : infos) {
+                for (SegmentCommitInfo segmentCommitInfo : segmentInfosSnapshot) {
                     SegmentInfo info = segmentCommitInfo.info;
                     Set<String> segFiles = info.files();
                     for (String file : segFiles) {
@@ -535,6 +535,8 @@ public final class RemoteSegmentStoreDirectory extends FilterDirectory implement
                             metadata.setWrittenBy(segmentToLuceneVersion.get(metadata.originalFilename));
                         } else if (metadata.originalFilename.equals(segmentInfosSnapshot.getSegmentsFileName())) {
                             metadata.setWrittenBy(segmentInfosSnapshot.getCommitLuceneVersion());
+                        } else {
+                            throw new CorruptIndexException("Lucene version is missing for segment file", metadata.originalFilename);
                         }
 
                         uploadedSegments.put(file, metadata.toString());
