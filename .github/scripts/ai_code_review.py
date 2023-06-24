@@ -75,5 +75,5 @@ def make_github_api_request(path, method="GET", data=None):
 
 
 if __name__ == "__main__":
-    pull_request_number = int(sys.argv[1])
+    pull_request_number = os.environ.get('PR_NUMBER')
     create_review(pull_request_number)
