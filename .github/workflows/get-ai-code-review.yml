@@ -49,4 +49,4 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
         run: |
-          python ./.github/scripts/ai_code_review.py ${{ github.event.pull_request.number }}
+          python ./.github/scripts/ai_code_review.py "${{ github.event.pull_request.number }}"
