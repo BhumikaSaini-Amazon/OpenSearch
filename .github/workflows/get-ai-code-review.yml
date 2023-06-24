@@ -43,6 +43,11 @@ jobs:
           python -m pip install --upgrade pip
           python -m pip install openai
           python -m pip install requests
+      
+      - name: Get Changed Lines
+        run: |
+          git diff --unified=0 ${{ github.base_ref }} ${{ github.head_ref }} > changes.diff
+          cat changes.diff
 
       - name: Generate PR review
         if: steps.should_review.outputs.should_review == 'true'
@@ -52,8 +57,3 @@ jobs:
           PR_NUMBER: ${{ github.event.issue.number }}
         run: |
           python ./.github/scripts/ai_code_review.py
-      
-      - name: Get Changed Lines
-        run: |
-          git diff --unified=0 ${{ github.base_ref }} ${{ github.head_ref }} > changes.diff
-          cat changes.diff
