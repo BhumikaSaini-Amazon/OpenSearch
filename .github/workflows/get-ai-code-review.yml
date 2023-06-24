@@ -1,0 +1,52 @@
+name: AI Code Review
+
+on:
+  issue_comment:
+    types:
+      - created
+
+jobs:
+  ai_code_review:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check if PR comment is from repo owner
+        id: is_repo_owner
+        run: |
+          echo "::set-output name=is_owner::$(jq '.comment.user.login == .repository.owner.login' "$GITHUB_EVENT_PATH")"
+
+      - name: Check if required keywords are present
+        if: steps.is_repo_owner.outputs.is_owner == 'true'
+        id: is_keyword_present
+        run: |
+          echo "::set-output name=is_keyword_present::$(grep -iF 'get AI code review' "$GITHUB_EVENT_PATH")"        
+
+      - name: Check if we need to request review
+        if: steps.is_repo_owner.outputs.is_owner == 'true' && steps.is_keyword_present.outputs.is_keyword_present != ''
+        id: should_review
+        run: |
+          echo "::set-output name=should_review::true"
+      
+      - name: Checkout repository
+        if: steps.should_review.outputs.should_review == 'true'
+        uses: actions/checkout@v2
+
+      - name: Set up Python
+        if: steps.should_review.outputs.should_review == 'true'
+        uses: actions/setup-python@v2
+        with:
+          python-version: '3.x'
+
+      - name: Install dependencies
+        if: steps.should_review.outputs.should_review == 'true'
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install openai
+
+      - name: Generate PR review
+        if: steps.should_review.outputs.should_review == 'true'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        run: |
+          python ./.github/scripts/ai_code_review.py ${{ github.event.pull_request.number }}
