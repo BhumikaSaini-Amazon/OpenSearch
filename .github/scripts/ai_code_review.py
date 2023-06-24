@@ -67,7 +67,7 @@ def add_pull_request_comment(comment, pull_request_number):
 
 
 def make_github_api_request(path, method="GET", data=None):
-    response = requests.request(method, f"https://api.github.com/repos/:owner/:repo/{path}", json=data, headers={"Authorization": f"token {os.getenv('GITHUB_TOKEN')}"})
+    response = requests.request(method, f"https://api.github.com/repos/BhumikaSaini-Amazon/OpenSearch/{path}", json=data, headers={"Authorization": f"token {os.getenv('GITHUB_TOKEN')}"})
 
     # Check the response status code to handle errors or rate limiting
     response.raise_for_status()
