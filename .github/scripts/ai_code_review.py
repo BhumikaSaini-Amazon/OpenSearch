@@ -13,7 +13,7 @@ def create_review(pull_request_number):
     pr_body = pr['body']
 
     # Construct the prompt for the model, based on PR details
-    prompt = "How can this pull request be improved from a security, performance, maintainability, correctness, concurrency, resource consumption, and best practices aspects? Only provide recommendations. Don't write any code or repeat recommedations."
+    prompt = "How can this pull request be improved from a security, performance, maintainability, correctness, concurrency, resource consumption, and best practices aspects? Provide specific, contextual recommendations in each category. Don't write any code or repeat recommedations."
     prompt += f"Title:{pr_title}\n"
     prompt += f"Description:{pr_body}\n"
     prompt += f"Changes:\n "
