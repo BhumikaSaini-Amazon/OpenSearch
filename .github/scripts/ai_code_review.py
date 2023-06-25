@@ -44,7 +44,7 @@ def generate_review(prompt):
         engine="text-davinci-003",
         prompt=prompt[:4096],
         temperature=0.1,
-        max_tokens=3000,
+        max_tokens=2918,
         n=1,
         stop=None,
     )
