@@ -13,7 +13,7 @@ def create_review(pull_request_number):
     pr_body = pr['body']
 
     # Construct the prompt for the model, based on PR details
-    prompt = "Can you identify any performance/security issues and bugs in this code/pull request?"
+    prompt = "Can you identify any performance/security issues and bugs in this code/pull request? If yes, suggest possible corrections."
     prompt += f"Title:{pr_title}\n"
     prompt += f"Description:{pr_body}\n"
     prompt += f"Changes:\n "
