@@ -43,7 +43,7 @@ def generate_review(prompt):
     response = openai.Completion.create(
         engine="text-davinci-003",
         prompt=prompt[:4096],
-        temperature=0.2,
+        temperature=0,
         max_tokens=2800,
         n=1,
         stop=None,
