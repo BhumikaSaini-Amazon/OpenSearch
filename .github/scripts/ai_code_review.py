@@ -40,7 +40,7 @@ def generate_review(prompt):
     openai.api_key = os.getenv('OPENAI_API_KEY')
 
     # Make an API call to the model to generate the review
-    response = openai.Completion.create(
+    response = openai.ChatCompletion.create(
         engine="gpt-3.5-turbo",
         prompt=prompt[:4096],
         temperature=0.2,
