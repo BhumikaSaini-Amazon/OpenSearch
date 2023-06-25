@@ -1,3 +1,4 @@
+import json
 import os
 import openai
 import requests
@@ -14,7 +15,9 @@ def create_review(pull_request_number):
     # Construct the prompt for the model, based on PR details
     prompt = f"Pull Request Title: {pr_title}\n"
     prompt += f"Pull Request Description:\n {pr_body}\n\n"
-    prompt += os.environ.get('CHANGES')
+    changes = os.environ.get('CHANGES')
+    escaped_changes = json.dumps(changes)
+    prompt += escaped_changes
     print(prompt)
 
     # Invoke the model to generate the review
