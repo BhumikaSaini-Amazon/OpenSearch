@@ -15,6 +15,7 @@ def create_review(pull_request_number):
     prompt = f"Pull Request Title: {pr_title}\n"
     prompt += f"Pull Request Description:\n {pr_body}\n\n"
     prompt += os.environ.get('CHANGES')
+    print(prompt)
 
     # Invoke the model to generate the review
     review = generate_review(prompt)
