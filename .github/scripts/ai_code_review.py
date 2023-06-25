@@ -13,7 +13,7 @@ def create_review(pull_request_number):
     pr_body = pr['body']
 
     # Construct the prompt for the model, based on PR details
-    prompt = "How can this pull request be improved from a security, performance, maintainability, correctness, concurrency, testability, resource consumption, and best practices aspects? Don't write any code and only provide recommendations."
+    prompt = "How can this pull request be improved from a security, performance, maintainability, correctness, concurrency, resource consumption, and best practices aspects? Only provide recommendations. Don't write any code or repeat recommedations."
     prompt += f"Title:{pr_title}\n"
     prompt += f"Description:{pr_body}\n"
     prompt += f"Changes:\n "
@@ -43,7 +43,7 @@ def generate_review(prompt):
     response = openai.Completion.create(
         engine="text-davinci-003",
         prompt=prompt[:4096],
-        temperature=0.1,
+        temperature=0.2,
         max_tokens=2800,
         n=1,
         stop=None,
