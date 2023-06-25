@@ -47,8 +47,11 @@ def generate_review(prompt):
         stop=None,
     )
 
+    print(response)
+    
     # Extract the review from the API response
     review = response.choices[0].text.strip()
+    print(review)
     
     return review
 
