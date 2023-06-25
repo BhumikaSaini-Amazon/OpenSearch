@@ -13,7 +13,7 @@ def create_review(pull_request_number):
     pr_body = pr['body']
 
     # Construct the prompt for the model, based on PR details
-    prompt = "Provide summary with very specific recommendations to improve this pull request:"
+    prompt = "Provide specific recommendations to improve this pull request so that it is bug-free, performant, and adheres to best practices. Respond very concisely:"
     prompt += f"Pull Request Title: {pr_title}\n"
     prompt += f"Pull Request Description:\n {pr_body}\n\n"
     prompt += f"Pull Request Changes:\n "
@@ -40,10 +40,10 @@ def generate_review(prompt):
     openai.api_key = os.getenv('OPENAI_API_KEY')
 
     # Make an API call to the model to generate the review
-    response = openai.ChatCompletion.create(
-        engine="gpt-3.5-turbo",
+    response = openai.Completion.create(
+        engine="text-davinci-003",
         prompt=prompt[:4096],
-        temperature=0.2,
+        temperature=0,
         n=1,
         stop=None,
     )
