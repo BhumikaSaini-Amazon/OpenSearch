@@ -50,6 +50,6 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           PR_NUMBER: ${{ github.event.issue.number }}
-          CHANGES=$(curl -s -H "Authorization: Bearer ${{ secrets.GH_TOKEN }}" "https://api.github.com/repos/${{ github.repository }}/pulls/${PR_NUMBER}/files" | jq -r ".[].patch")
         run: |
+          echo "CHANGES=$(curl -s -H 'Authorization: Bearer ${{ secrets.GH_TOKEN }}' 'https://api.github.com/repos/${{ github.repository }}/pulls/${PR_NUMBER}/files' | jq -r '.[].patch')" >> $GITHUB_ENV
           python ./.github/scripts/ai_code_review.py
