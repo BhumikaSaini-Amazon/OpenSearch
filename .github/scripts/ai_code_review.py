@@ -41,10 +41,9 @@ def generate_review(prompt):
 
     # Make an API call to the model to generate the review
     response = openai.Completion.create(
-        engine="text-davinci-003",
-        prompt=prompt[:4098],
+        engine="gpt-3.5-turbo",
+        prompt=prompt[:4096],
         temperature=0.2,
-        max_tokens=2000,
         n=1,
         stop=None,
     )
