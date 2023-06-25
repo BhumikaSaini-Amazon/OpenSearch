@@ -10,18 +10,11 @@ def create_review(pull_request_number):
     # Extract relevant details
     pr_title = pr['title']
     pr_body = pr['body']
-    pr_files = pr['files']
 
     # Construct the prompt for the model, based on PR details
     prompt = f"Pull Request Title: {pr_title}\n"
     prompt += f"Pull Request Description:\n {pr_body}\n\n"
-
-    for file in pr_files:
-        filename = file['filename']
-        additions = file['additions']
-        deletions = file['deletions']
-        changes = additions + deletions
-        prompt += f"File: {filename} - Changes: {changes}\n"
+    prompt += os.environ.get('CHANGES')
 
     # Invoke the model to generate the review
     review = generate_review(prompt)
