@@ -12,7 +12,6 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.apache.logging.log4j.message.ParameterizedMessage;
 import org.apache.lucene.codecs.CodecUtil;
-import org.apache.lucene.index.IndexFileNames;
 import org.apache.lucene.index.SegmentInfos;
 import org.apache.lucene.search.ReferenceManager;
 import org.apache.lucene.store.Directory;
@@ -38,13 +37,10 @@ import org.opensearch.threadpool.ThreadPool;
 
 import java.io.IOException;
 import java.util.Collection;
-import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
-import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
@@ -212,47 +208,19 @@ public final class RemoteStoreRefreshListener implements ReferenceManager.Refres
                     long lastRefreshedCheckpoint = ((InternalEngine) indexShard.getEngine()).lastRefreshedCheckpoint();
                     Collection<String> localSegmentsPostRefresh = segmentInfos.files(true);
 
-                    List<String> segmentInfosFiles = localSegmentsPostRefresh.stream()
-                        .filter(file -> file.startsWith(IndexFileNames.SEGMENTS))
-                        .collect(Collectors.toList());
-                    Optional<String> latestSegmentInfos = segmentInfosFiles.stream()
-                        .max(Comparator.comparingLong(SegmentInfos::generationFromSegmentsFileName));
+                    // Create a map of file name to size and update the refresh segment tracker
+                    updateLocalSizeMapAndTracker(localSegmentsPostRefresh);
 
-                    if (latestSegmentInfos.isPresent()) {
-                        // SegmentInfosSnapshot is a snapshot of reader's view of segments and may not contain
-                        // all the segments from last commit if they are merged away but not yet committed.
-                        // Each metadata file in the remote segment store represents a commit and the following
-                        // statement keeps sure that each metadata will always contain all the segments from last commit + refreshed
-                        // segments.
-                        SegmentInfos segmentCommitInfos;
-                        try {
-                            segmentCommitInfos = SegmentInfos.readCommit(storeDirectory, latestSegmentInfos.get());
-                        } catch (Exception e) {
-                            // Seeing discrepancy in segment infos and files on disk. SegmentInfosSnapshot is returning
-                            // a segment_N file which does not exist on local disk.
-                            logger.error("Exception occurred while SegmentInfos.readCommit(..)", e);
-                            logger.error("segmentInfosFiles={} diskFiles={}", localSegmentsPostRefresh, storeDirectory.listAll());
-                            throw e;
-                        }
-                        localSegmentsPostRefresh.addAll(segmentCommitInfos.files(true));
-                        segmentInfosFiles.stream()
-                            .filter(file -> !file.equals(latestSegmentInfos.get()))
-                            .forEach(localSegmentsPostRefresh::remove);
-
-                        // Create a map of file name to size and update the refresh segment tracker
-                        updateLocalSizeMapAndTracker(localSegmentsPostRefresh);
-
-                        // Start the segments files upload
-                        boolean newSegmentsUploadStatus = uploadNewSegments(localSegmentsPostRefresh);
-                        if (newSegmentsUploadStatus) {
-                            // Start metadata file upload
-                            uploadMetadata(localSegmentsPostRefresh, segmentInfos);
-                            clearStaleFilesFromLocalSegmentChecksumMap(localSegmentsPostRefresh);
-                            onSuccessfulSegmentsSync(refreshTimeMs, refreshClockTimeMs, refreshSeqNo, lastRefreshedCheckpoint, checkpoint);
-                            // At this point since we have uploaded new segments, segment infos and segment metadata file,
-                            // along with marking minSeqNoToKeep, upload has succeeded completely.
-                            shouldRetry = false;
-                        }
+                    // Start the segments files upload
+                    boolean newSegmentsUploadStatus = uploadNewSegments(localSegmentsPostRefresh);
+                    if (newSegmentsUploadStatus) {
+                        // Start metadata file upload
+                        uploadMetadata(localSegmentsPostRefresh, segmentInfos);
+                        clearStaleFilesFromLocalSegmentChecksumMap(localSegmentsPostRefresh);
+                        onSuccessfulSegmentsSync(refreshTimeMs, refreshClockTimeMs, refreshSeqNo, lastRefreshedCheckpoint, checkpoint);
+                        // At this point since we have uploaded new segments, segment infos and segment metadata file,
+                        // along with marking minSeqNoToKeep, upload has succeeded completely.
+                        shouldRetry = false;
                     }
                 } catch (EngineException e) {
                     logger.warn("Exception while reading SegmentInfosSnapshot", e);
