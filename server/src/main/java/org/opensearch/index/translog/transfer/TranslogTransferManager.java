@@ -24,6 +24,7 @@ import org.opensearch.common.logging.Loggers;
 import org.opensearch.common.lucene.store.ByteArrayIndexInput;
 import org.opensearch.core.common.bytes.BytesReference;
 import org.opensearch.core.index.shard.ShardId;
+import org.opensearch.index.remote.RemoteStoreUtils;
 import org.opensearch.index.translog.Translog;
 import org.opensearch.index.translog.transfer.listener.TranslogTransferListener;
 import org.opensearch.threadpool.ThreadPool;
@@ -93,13 +94,14 @@ public class TranslogTransferManager {
 
     public boolean transferSnapshot(TransferSnapshot transferSnapshot, TranslogTransferListener translogTransferListener)
         throws IOException {
+        // TODO: Should we be incrementing stats if there is nothing to upload?
+        translogTransferListener.beforeUpload(transferSnapshot);
         List<Exception> exceptionList = new ArrayList<>(transferSnapshot.getTranslogTransferMetadata().getCount());
-        Set<TransferFileSnapshot> toUpload = new HashSet<>(transferSnapshot.getTranslogTransferMetadata().getCount());
+        Set<TransferFileSnapshot> toUpload = RemoteStoreUtils.getUploadBlobsFromSnapshot(transferSnapshot, fileTransferTracker);
         try {
-            toUpload.addAll(fileTransferTracker.exclusionFilter(transferSnapshot.getTranslogFileSnapshots()));
-            toUpload.addAll(fileTransferTracker.exclusionFilter((transferSnapshot.getCheckpointFileSnapshots())));
             if (toUpload.isEmpty()) {
                 logger.trace("Nothing to upload for transfer");
+                // TODO: Should we be incrementing stats if there is nothing to upload?
                 translogTransferListener.onUploadComplete(transferSnapshot);
                 return true;
             }

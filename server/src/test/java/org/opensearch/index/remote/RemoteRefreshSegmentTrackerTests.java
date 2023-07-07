@@ -26,7 +26,7 @@ import static org.mockito.Mockito.mock;
 
 public class RemoteRefreshSegmentTrackerTests extends OpenSearchTestCase {
 
-    private RemoteRefreshSegmentPressureSettings pressureSettings;
+    private RemoteStorePressureSettings pressureSettings;
 
     private ClusterService clusterService;
 
@@ -45,10 +45,10 @@ public class RemoteRefreshSegmentTrackerTests extends OpenSearchTestCase {
             new ClusterSettings(Settings.EMPTY, ClusterSettings.BUILT_IN_CLUSTER_SETTINGS),
             threadPool
         );
-        pressureSettings = new RemoteRefreshSegmentPressureSettings(
+        pressureSettings = new RemoteStorePressureSettings(
             clusterService,
             Settings.EMPTY,
-            mock(RemoteRefreshSegmentPressureService.class)
+            mock(RemoteStorePressureService.class)
         );
         shardId = new ShardId("index", "uuid", 0);
     }

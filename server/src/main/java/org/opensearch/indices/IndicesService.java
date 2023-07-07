@@ -60,6 +60,7 @@ import org.opensearch.common.CheckedConsumer;
 import org.opensearch.common.CheckedFunction;
 import org.opensearch.common.CheckedSupplier;
 import org.opensearch.common.Nullable;
+import org.opensearch.common.SetOnce;
 import org.opensearch.common.breaker.CircuitBreaker;
 import org.opensearch.core.common.bytes.BytesReference;
 import org.opensearch.common.component.AbstractLifecycleComponent;
@@ -120,7 +121,7 @@ import org.opensearch.index.query.QueryBuilder;
 import org.opensearch.index.query.QueryRewriteContext;
 import org.opensearch.index.recovery.RecoveryStats;
 import org.opensearch.index.refresh.RefreshStats;
-import org.opensearch.index.remote.RemoteRefreshSegmentPressureService;
+import org.opensearch.index.remote.RemoteStorePressureService;
 import org.opensearch.index.search.stats.SearchStats;
 import org.opensearch.index.seqno.RetentionLeaseStats;
 import org.opensearch.index.seqno.RetentionLeaseSyncer;
@@ -320,6 +321,7 @@ public class IndicesService extends AbstractLifecycleComponent
     private final BiFunction<IndexSettings, ShardRouting, TranslogFactory> translogFactorySupplier;
 
     private final FileCacheCleaner fileCacheCleaner;
+    private static SetOnce<RemoteStorePressureService> pressureServiceSetOnce;
 
     @Override
     protected void doStart() {
@@ -451,7 +453,8 @@ public class IndicesService extends AbstractLifecycleComponent
                 return new RemoteBlobStoreInternalTranslogFactory(
                     repositoriesServiceSupplier,
                     threadPool,
-                    indexSettings.getRemoteStoreTranslogRepository()
+                    indexSettings.getRemoteStoreTranslogRepository(),
+                    pressureServiceSetOnce.get().getRemoteTranslogTracker(shardRouting.shardId())
                 );
             }
             return new InternalTranslogFactory();
@@ -928,8 +931,8 @@ public class IndicesService extends AbstractLifecycleComponent
         final RetentionLeaseSyncer retentionLeaseSyncer,
         final DiscoveryNode targetNode,
         final DiscoveryNode sourceNode,
-        final RemoteRefreshSegmentPressureService remoteRefreshSegmentPressureService
-    ) throws IOException {
+        final RemoteStorePressureService remoteStorePressureService
+        ) throws IOException {
         Objects.requireNonNull(retentionLeaseSyncer);
         ensureChangesAllowed();
         IndexService indexService = indexService(shardRouting.index());
@@ -940,7 +943,7 @@ public class IndicesService extends AbstractLifecycleComponent
             globalCheckpointSyncer,
             retentionLeaseSyncer,
             checkpointPublisher,
-            remoteRefreshSegmentPressureService
+            remoteStorePressureService
         );
         indexShard.addShardFailureCallback(onShardFailure);
         indexShard.startRecovery(recoveryState, recoveryTargetService, recoveryListener, repositoriesService, mapping -> {
@@ -1858,5 +1861,9 @@ public class IndicesService extends AbstractLifecycleComponent
     public boolean allPendingDanglingIndicesWritten() {
         return nodeWriteDanglingIndicesInfo == false
             || (danglingIndicesToWrite.isEmpty() && danglingIndicesThreadPoolExecutor.getActiveCount() == 0);
+    }
+
+    public void setPressureService(RemoteStorePressureService pressureService) {
+        pressureServiceSetOnce.set(pressureService);
     }
 }

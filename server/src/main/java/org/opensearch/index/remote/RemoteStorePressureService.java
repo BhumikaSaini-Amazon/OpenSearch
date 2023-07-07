@@ -30,9 +30,9 @@ import java.util.function.BiConsumer;
  *
  * @opensearch.internal
  */
-public class RemoteRefreshSegmentPressureService implements IndexEventListener {
+public class RemoteStorePressureService implements IndexEventListener {
 
-    private static final Logger logger = LogManager.getLogger(RemoteRefreshSegmentPressureService.class);
+    private static final Logger logger = LogManager.getLogger(RemoteStorePressureService.class);
 
     /**
      * Keeps map of remote-backed index shards and their corresponding backpressure tracker.
@@ -40,15 +40,20 @@ public class RemoteRefreshSegmentPressureService implements IndexEventListener {
     private final Map<ShardId, RemoteRefreshSegmentTracker> trackerMap = ConcurrentCollections.newConcurrentMap();
 
     /**
+     * Keeps map of remote-backed index shards and their corresponding backpressure tracker.
+     */
+    private final Map<ShardId, RemoteTranslogTracker> trackerMapRTS = ConcurrentCollections.newConcurrentMap();
+
+    /**
      * Remote refresh segment pressure settings which is used for creation of the backpressure tracker and as well as rejection.
      */
-    private final RemoteRefreshSegmentPressureSettings pressureSettings;
+    private final RemoteStorePressureSettings pressureSettings;
 
     private final List<LagValidator> lagValidators;
 
     @Inject
-    public RemoteRefreshSegmentPressureService(ClusterService clusterService, Settings settings) {
-        pressureSettings = new RemoteRefreshSegmentPressureSettings(clusterService, settings, this);
+    public RemoteStorePressureService(ClusterService clusterService, Settings settings) {
+        pressureSettings = new RemoteStorePressureSettings(clusterService, settings, this);
         lagValidators = Arrays.asList(
             new ConsecutiveFailureValidator(pressureSettings),
             new BytesLagValidator(pressureSettings),
@@ -66,6 +71,16 @@ public class RemoteRefreshSegmentPressureService implements IndexEventListener {
         return trackerMap.get(shardId);
     }
 
+    /**
+     * Get {@link  RemoteTranslogTracker} only if the underlying Index has remote translog store enabled.
+     *
+     * @param shardId shard id
+     * @return the tracker if index is remote translog store-backed, else null.
+     */
+    public RemoteTranslogTracker getRemoteTranslogTracker(ShardId shardId) {
+        return trackerMapRTS.get(shardId);
+    }
+
     @Override
     public void afterIndexShardCreated(IndexShard indexShard) {
         if (indexShard.indexSettings().isRemoteStoreEnabled() == false) {
@@ -81,14 +96,31 @@ public class RemoteRefreshSegmentPressureService implements IndexEventListener {
                 pressureSettings.getUploadTimeMovingAverageWindowSize()
             )
         );
-        logger.trace("Created tracker for shardId={}", shardId);
+        logger.trace("Created RemoteRefreshSegmentTracker for shardId={}", shardId);
+        if (indexShard.indexSettings().isRemoteTranslogStoreEnabled()) {
+            trackerMapRTS.put(
+                shardId,
+                new RemoteTranslogTracker(
+                    shardId,
+                    pressureSettings.getUploadBytesMovingAverageWindowSize(),
+                    pressureSettings.getUploadBytesPerSecMovingAverageWindowSize(),
+                    pressureSettings.getUploadTimeMovingAverageWindowSize()
+                )
+            );
+            logger.trace("Created RemoteTranslogTracker for shardId={}", shardId);
+        }
     }
 
     @Override
     public void afterIndexShardClosed(ShardId shardId, IndexShard indexShard, Settings indexSettings) {
         RemoteRefreshSegmentTracker remoteRefreshSegmentTracker = trackerMap.remove(shardId);
         if (remoteRefreshSegmentTracker != null) {
-            logger.trace("Deleted tracker for shardId={}", shardId);
+            logger.trace("Deleted RemoteRefreshSegmentTracker for shardId={}", shardId);
+        }
+
+        RemoteTranslogTracker remoteTranslogTracker = trackerMapRTS.remove(shardId);
+        if (remoteTranslogTracker != null) {
+            logger.trace("Deleted RemoteTranslogTracker for shardId={}", shardId);
         }
     }
 
@@ -99,6 +131,15 @@ public class RemoteRefreshSegmentPressureService implements IndexEventListener {
      */
     public boolean isSegmentsUploadBackpressureEnabled() {
         return pressureSettings.isRemoteRefreshSegmentPressureEnabled();
+    }
+
+    /**
+     * Check if remote translog backpressure is enabled. This is not yet implemented.
+     *
+     * @return true if enabled, else false.
+     */
+    public boolean isTranslogUploadBackpressureEnabled() {
+        return false;
     }
 
     /**
@@ -124,18 +165,25 @@ public class RemoteRefreshSegmentPressureService implements IndexEventListener {
 
     void updateUploadBytesMovingAverageWindowSize(int updatedSize) {
         updateMovingAverageWindowSize(RemoteRefreshSegmentTracker::updateUploadBytesMovingAverageWindowSize, updatedSize);
+        updateMovingAverageWindowSizeRTS(RemoteTranslogTracker::updateUploadBytesMovingAverageWindowSize, updatedSize);
     }
 
     void updateUploadBytesPerSecMovingAverageWindowSize(int updatedSize) {
         updateMovingAverageWindowSize(RemoteRefreshSegmentTracker::updateUploadBytesPerSecMovingAverageWindowSize, updatedSize);
+        updateMovingAverageWindowSizeRTS(RemoteTranslogTracker::updateUploadBytesPerSecMovingAverageWindowSize, updatedSize);
     }
 
     void updateUploadTimeMsMovingAverageWindowSize(int updatedSize) {
         updateMovingAverageWindowSize(RemoteRefreshSegmentTracker::updateUploadTimeMsMovingAverageWindowSize, updatedSize);
+        updateMovingAverageWindowSizeRTS(RemoteTranslogTracker::updateUploadTimeMsMovingAverageWindowSize, updatedSize);
     }
 
     void updateMovingAverageWindowSize(BiConsumer<RemoteRefreshSegmentTracker, Integer> biConsumer, int updatedSize) {
         trackerMap.values().forEach(tracker -> biConsumer.accept(tracker, updatedSize));
+    }
+
+    void updateMovingAverageWindowSizeRTS(BiConsumer<RemoteTranslogTracker, Integer> biConsumer, int updatedSize) {
+        trackerMapRTS.values().forEach(tracker -> biConsumer.accept(tracker, updatedSize));
     }
 
     /**
@@ -145,9 +193,9 @@ public class RemoteRefreshSegmentPressureService implements IndexEventListener {
      */
     private static abstract class LagValidator {
 
-        final RemoteRefreshSegmentPressureSettings pressureSettings;
+        final RemoteStorePressureSettings pressureSettings;
 
-        private LagValidator(RemoteRefreshSegmentPressureSettings pressureSettings) {
+        private LagValidator(RemoteStorePressureSettings pressureSettings) {
             this.pressureSettings = pressureSettings;
         }
 
@@ -179,7 +227,7 @@ public class RemoteRefreshSegmentPressureService implements IndexEventListener {
 
         private static final String NAME = "bytes_lag";
 
-        private BytesLagValidator(RemoteRefreshSegmentPressureSettings pressureSettings) {
+        private BytesLagValidator(RemoteStorePressureSettings pressureSettings) {
             super(pressureSettings);
         }
 
@@ -225,7 +273,7 @@ public class RemoteRefreshSegmentPressureService implements IndexEventListener {
 
         private static final String NAME = "time_lag";
 
-        private TimeLagValidator(RemoteRefreshSegmentPressureSettings pressureSettings) {
+        private TimeLagValidator(RemoteStorePressureSettings pressureSettings) {
             super(pressureSettings);
         }
 
@@ -271,7 +319,7 @@ public class RemoteRefreshSegmentPressureService implements IndexEventListener {
 
         private static final String NAME = "consecutive_failures_lag";
 
-        private ConsecutiveFailureValidator(RemoteRefreshSegmentPressureSettings pressureSettings) {
+        private ConsecutiveFailureValidator(RemoteStorePressureSettings pressureSettings) {
             super(pressureSettings);
         }
 
