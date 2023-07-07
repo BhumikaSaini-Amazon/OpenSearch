@@ -631,5 +631,29 @@ public class RemoteSegmentTransferTracker {
             out.writeLong(bytesLag);
             out.writeOptionalWriteable(directoryFileTransferTrackerStats);
         }
+
+        @Override
+        public boolean equals(Object obj) {
+            if (this == obj) return true;
+            if (obj == null || getClass() != obj.getClass()) return false;
+            Stats other = (Stats) obj;
+
+            return this.shardId.toString().equals(other.shardId.toString())
+                && this.refreshTimeLagMs == other.refreshTimeLagMs
+                && this.localRefreshNumber == other.localRefreshNumber
+                && this.remoteRefreshNumber == other.remoteRefreshNumber
+                && this.uploadBytesStarted == other.uploadBytesStarted
+                && this.uploadBytesSucceeded == other.uploadBytesSucceeded
+                && this.uploadBytesFailed == other.uploadBytesFailed
+                && this.totalUploadsStarted == other.totalUploadsStarted
+                && this.totalUploadsFailed == other.totalUploadsFailed
+                && this.totalUploadsSucceeded == other.totalUploadsSucceeded
+                && this.rejectionCount == other.rejectionCount
+                && this.consecutiveFailuresCount == other.consecutiveFailuresCount
+                && Double.compare(this.uploadBytesMovingAverage, other.uploadBytesMovingAverage) == 0
+                && Double.compare(this.uploadBytesPerSecMovingAverage, other.uploadBytesPerSecMovingAverage) == 0
+                && Double.compare(this.uploadTimeMovingAverage, other.uploadTimeMovingAverage) == 0
+                && this.bytesLag == other.bytesLag;
+        }
     }
 }

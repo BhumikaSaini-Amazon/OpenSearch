@@ -127,6 +127,9 @@ public class TranslogTransferManagerTests extends OpenSearchTestCase {
 
         assertTrue(translogTransferManager.transferSnapshot(createTransferSnapshot(), new TranslogTransferListener() {
             @Override
+            public void beforeUpload(TransferSnapshot transferSnapshot) throws IOException {}
+
+            @Override
             public void onUploadComplete(TransferSnapshot transferSnapshot) {
                 translogTransferSucceeded.incrementAndGet();
             }

@@ -16,6 +16,7 @@ import org.opensearch.common.xcontent.XContentHelper;
 import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.index.remote.RemoteSegmentTransferTracker;
 import org.opensearch.core.index.shard.ShardId;
+import org.opensearch.index.remote.RemoteTranslogTracker;
 import org.opensearch.test.OpenSearchTestCase;
 import org.opensearch.threadpool.TestThreadPool;
 import org.opensearch.threadpool.ThreadPool;
@@ -24,6 +25,7 @@ import java.util.ArrayList;
 import java.util.Map;
 
 import static org.opensearch.action.admin.cluster.remotestore.stats.RemoteStoreStatsTestHelper.compareStatsResponse;
+import static org.opensearch.action.admin.cluster.remotestore.stats.RemoteStoreStatsTestHelper.createPressureTrackerTranslogStats;
 import static org.opensearch.action.admin.cluster.remotestore.stats.RemoteStoreStatsTestHelper.createShardRouting;
 import static org.opensearch.action.admin.cluster.remotestore.stats.RemoteStoreStatsTestHelper.createStatsForNewPrimary;
 import static org.opensearch.action.admin.cluster.remotestore.stats.RemoteStoreStatsTestHelper.createStatsForNewReplica;
@@ -49,6 +51,7 @@ public class RemoteStoreStatsResponseTests extends OpenSearchTestCase {
 
     public void testSerializationForPrimary() throws Exception {
         RemoteSegmentTransferTracker.Stats mockPrimaryTrackerStats = createStatsForNewPrimary(shardId);
+        RemoteTranslogTracker.Stats pressureTrackerTranslogStats = createPressureTrackerTranslogStats(shardId);
         ShardRouting primaryShardRouting = createShardRouting(shardId, true);
         RemoteStoreStats primaryShardStats = new RemoteStoreStats(mockPrimaryTrackerStats, primaryShardRouting);
         RemoteStoreStatsResponse statsResponse = new RemoteStoreStatsResponse(

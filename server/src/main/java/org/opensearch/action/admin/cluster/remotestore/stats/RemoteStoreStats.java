@@ -15,6 +15,7 @@ import org.opensearch.cluster.routing.ShardRouting;
 import org.opensearch.core.xcontent.ToXContentFragment;
 import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.index.remote.RemoteSegmentTransferTracker;
+import org.opensearch.index.remote.RemoteTranslogTracker;
 
 import java.io.IOException;
 
@@ -26,20 +27,22 @@ import java.io.IOException;
 public class RemoteStoreStats implements Writeable, ToXContentFragment {
 
     private final RemoteSegmentTransferTracker.Stats remoteSegmentShardStats;
-
+    private final RemoteTranslogTracker.Stats remoteTranslogShardStats;
     private final ShardRouting shardRouting;
 
-    public RemoteStoreStats(RemoteSegmentTransferTracker.Stats remoteSegmentUploadShardStats, ShardRouting shardRouting) {
+    public RemoteStoreStats(RemoteSegmentTransferTracker.Stats remoteSegmentUploadShardStats, RemoteTranslogTracker.Stats remoteTranslogShardStats, ShardRouting shardRouting) {
         this.remoteSegmentShardStats = remoteSegmentUploadShardStats;
+        this.remoteTranslogShardStats = remoteTranslogShardStats;
         this.shardRouting = shardRouting;
     }
 
     public RemoteStoreStats(StreamInput in) throws IOException {
-        this.remoteSegmentShardStats = in.readOptionalWriteable(RemoteSegmentTransferTracker.Stats::new);
+        remoteSegmentShardStats = in.readOptionalWriteable(RemoteSegmentTransferTracker.Stats::new);
+        remoteTranslogShardStats = in.readOptionalWriteable(RemoteTranslogTracker.Stats::new);
         this.shardRouting = new ShardRouting(in);
     }
 
-    public RemoteSegmentTransferTracker.Stats getStats() {
+    public RemoteSegmentTransferTracker.Stats getSegmentStats() {
         return remoteSegmentShardStats;
     }
 
@@ -47,34 +50,79 @@ public class RemoteStoreStats implements Writeable, ToXContentFragment {
         return shardRouting;
     }
 
+    public RemoteTranslogTracker.Stats getTranslogStats() {
+        return remoteTranslogShardStats;
+    }
+
     @Override
     public XContentBuilder toXContent(XContentBuilder builder, Params params) throws IOException {
         builder.startObject();
         buildShardRouting(builder);
+
         builder.startObject(Fields.SEGMENT);
         builder.startObject(SubFields.DOWNLOAD);
         // Ensuring that we are not showing 0 metrics to the user
         if (remoteSegmentShardStats.directoryFileTransferTrackerStats.transferredBytesStarted != 0) {
-            buildDownloadStats(builder);
+            buildSegmentDownloadStats(builder);
         }
-        builder.endObject();
+        builder.endObject(); // segment.download
         builder.startObject(SubFields.UPLOAD);
         // Ensuring that we are not showing 0 metrics to the user
         if (remoteSegmentShardStats.totalUploadsStarted != 0) {
-            buildUploadStats(builder);
+            buildSegmentUploadStats(builder);
         }
-        builder.endObject();
-        builder.endObject();
+        builder.endObject(); // segment.upload
+        builder.endObject(); // segment
+
+        builder.startObject(Fields.TRANSLOG);
+        builder.startObject(SubFields.DOWNLOAD);
+        builder.endObject(); // translog.download
+        builder.startObject(SubFields.UPLOAD);
+        buildTranslogUploadStats(builder);
+        builder.endObject(); // translog.upload
+        builder.endObject(); // translog
+
         return builder.endObject();
     }
 
     @Override
     public void writeTo(StreamOutput out) throws IOException {
         out.writeOptionalWriteable(remoteSegmentShardStats);
+        out.writeOptionalWriteable(remoteTranslogShardStats);
         shardRouting.writeTo(out);
     }
 
-    private void buildUploadStats(XContentBuilder builder) throws IOException {
+    private void buildTranslogUploadStats(XContentBuilder builder) throws IOException {
+        builder.field(UploadStatsFields.LAST_UPLOAD_TIMESTAMP, remoteTranslogShardStats.lastUploadTimestamp);
+
+        builder.startObject(UploadStatsFields.TOTAL_UPLOADS);
+        builder.field(SubFields.STARTED, remoteTranslogShardStats.totalUploadsStarted)
+            .field(SubFields.FAILED, remoteTranslogShardStats.totalUploadsFailed)
+            .field(SubFields.SUCCEEDED, remoteTranslogShardStats.totalUploadsSucceeded);
+        builder.endObject();
+
+        builder.startObject(UploadStatsFields.TOTAL_UPLOADS_IN_BYTES);
+        builder.field(SubFields.STARTED, remoteTranslogShardStats.uploadBytesStarted)
+            .field(SubFields.FAILED, remoteTranslogShardStats.uploadBytesFailed)
+            .field(SubFields.SUCCEEDED, remoteTranslogShardStats.uploadBytesSucceeded);
+        builder.endObject();
+
+        builder.field(UploadStatsFields.TOTAL_UPLOAD_TIME_IN_MILLIS, remoteTranslogShardStats.totalUploadTimeInMillis);
+
+        builder.startObject(UploadStatsFields.UPLOAD_BYTES);
+        builder.field(SubFields.MOVING_AVG, remoteTranslogShardStats.uploadBytesMovingAverage);
+        builder.endObject();
+
+        builder.startObject(UploadStatsFields.UPLOAD_LATENCY_IN_BYTES_PER_SEC);
+        builder.field(SubFields.MOVING_AVG, remoteTranslogShardStats.uploadBytesPerSecMovingAverage);
+        builder.endObject();
+
+        builder.startObject(UploadStatsFields.UPLOAD_TIME_IN_MILLIS);
+        builder.field(SubFields.MOVING_AVG, remoteTranslogShardStats.uploadTimeMovingAverage);
+        builder.endObject();
+    }
+
+    private void buildSegmentUploadStats(XContentBuilder builder) throws IOException {
         builder.field(UploadStatsFields.LOCAL_REFRESH_TIMESTAMP, remoteSegmentShardStats.localRefreshClockTimeMs)
             .field(UploadStatsFields.REMOTE_REFRESH_TIMESTAMP, remoteSegmentShardStats.remoteRefreshClockTimeMs)
             .field(UploadStatsFields.REFRESH_TIME_LAG_IN_MILLIS, remoteSegmentShardStats.refreshTimeLagMs)
@@ -104,7 +152,7 @@ public class RemoteStoreStats implements Writeable, ToXContentFragment {
         builder.endObject();
     }
 
-    private void buildDownloadStats(XContentBuilder builder) throws IOException {
+    private void buildSegmentDownloadStats(XContentBuilder builder) throws IOException {
         builder.field(
             DownloadStatsFields.LAST_SYNC_TIMESTAMP,
             remoteSegmentShardStats.directoryFileTransferTrackerStats.lastTransferTimestampMs
@@ -131,6 +179,9 @@ public class RemoteStoreStats implements Writeable, ToXContentFragment {
         builder.endObject();
     }
 
+    /**
+     * Fields for remote store stats response
+     */
     static final class Fields {
         static final String ROUTING = "routing";
         static final String SEGMENT = "segment";
@@ -206,6 +257,31 @@ public class RemoteStoreStats implements Writeable, ToXContentFragment {
          * Time taken by a single remote refresh
          */
         static final String REMOTE_REFRESH_LATENCY_IN_MILLIS = "remote_refresh_latency_in_millis";
+
+        /**
+         *
+         */
+        static final String LAST_UPLOAD_TIMESTAMP = "last_upload_timestamp";
+
+        /**
+         *
+         */
+        static final String TOTAL_UPLOADS = "total_uploads";
+
+        /**
+         *
+         */
+        static final String TOTAL_UPLOAD_TIME_IN_MILLIS = "total_upload_time_in_millis";
+
+        /**
+         *
+         */
+        static final String UPLOAD_BYTES = "upload_bytes";
+
+        /**
+         *
+         */
+        static final String UPLOAD_TIME_IN_MILLIS = "upload_time_in_millis";
     }
 
     static final class DownloadStatsFields {
@@ -231,7 +307,7 @@ public class RemoteStoreStats implements Writeable, ToXContentFragment {
     }
 
     /**
-     * Reusable sub fields for {@link UploadStatsFields} and {@link DownloadStatsFields}
+     * Reusable sub fields for {@link Fields}
      */
     static final class SubFields {
         static final String STARTED = "started";
@@ -242,12 +318,12 @@ public class RemoteStoreStats implements Writeable, ToXContentFragment {
         static final String UPLOAD = "upload";
 
         /**
-         * Moving avg over last N values stat
+         * Moving avg over last N values stat for a {@link Fields}
          */
         static final String MOVING_AVG = "moving_avg";
 
         /**
-         * Most recent successful attempt stat
+         * Most recent successful attempt stat for a {@link Fields}
          */
         static final String LAST_SUCCESSFUL = "last_successful";
     }

@@ -17,6 +17,7 @@ import org.opensearch.common.xcontent.XContentHelper;
 import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.index.remote.RemoteSegmentTransferTracker;
 import org.opensearch.core.index.shard.ShardId;
+import org.opensearch.index.remote.RemoteTranslogTracker;
 import org.opensearch.test.OpenSearchTestCase;
 import org.opensearch.threadpool.TestThreadPool;
 import org.opensearch.threadpool.ThreadPool;
@@ -25,6 +26,7 @@ import java.io.IOException;
 import java.util.Map;
 
 import static org.opensearch.action.admin.cluster.remotestore.stats.RemoteStoreStatsTestHelper.compareStatsResponse;
+import static org.opensearch.action.admin.cluster.remotestore.stats.RemoteStoreStatsTestHelper.createPressureTrackerTranslogStats;
 import static org.opensearch.action.admin.cluster.remotestore.stats.RemoteStoreStatsTestHelper.createStatsForNewReplica;
 import static org.opensearch.action.admin.cluster.remotestore.stats.RemoteStoreStatsTestHelper.createShardRouting;
 import static org.opensearch.action.admin.cluster.remotestore.stats.RemoteStoreStatsTestHelper.createStatsForNewPrimary;
@@ -49,174 +51,79 @@ public class RemoteStoreStatsTests extends OpenSearchTestCase {
     }
 
     public void testXContentBuilderWithPrimaryShard() throws IOException {
-        RemoteSegmentTransferTracker.Stats uploadStats = createStatsForNewPrimary(shardId);
+        RemoteSegmentTransferTracker.Stats pressureTrackerSegmentStats = createStatsForNewPrimary(shardId);
+        RemoteTranslogTracker.Stats pressureTrackerTranslogStats = createPressureTrackerTranslogStats(shardId);
         ShardRouting routing = createShardRouting(shardId, true);
-        RemoteStoreStats stats = new RemoteStoreStats(uploadStats, routing);
+        RemoteStoreStats stats = new RemoteStoreStats(pressureTrackerSegmentStats, pressureTrackerTranslogStats, routing);
 
         XContentBuilder builder = XContentFactory.jsonBuilder();
         stats.toXContent(builder, EMPTY_PARAMS);
         Map<String, Object> jsonObject = XContentHelper.convertToMap(BytesReference.bytes(builder), false, builder.contentType()).v2();
-        compareStatsResponse(jsonObject, uploadStats, routing);
+        compareStatsResponse(jsonObject, pressureTrackerSegmentStats, pressureTrackerTranslogStats, routing);
     }
 
     public void testXContentBuilderWithReplicaShard() throws IOException {
-        RemoteSegmentTransferTracker.Stats downloadStats = createStatsForNewReplica(shardId);
+        RemoteSegmentTransferTracker.Stats pressureTrackerSegmentStats = createStatsForNewReplica(shardId);
+        RemoteTranslogTracker.Stats pressureTrackerTranslogStats = createPressureTrackerTranslogStats(shardId);
         ShardRouting routing = createShardRouting(shardId, false);
-        RemoteStoreStats stats = new RemoteStoreStats(downloadStats, routing);
+        RemoteStoreStats stats = new RemoteStoreStats(pressureTrackerSegmentStats, pressureTrackerTranslogStats, routing);
 
         XContentBuilder builder = XContentFactory.jsonBuilder();
         stats.toXContent(builder, EMPTY_PARAMS);
         Map<String, Object> jsonObject = XContentHelper.convertToMap(BytesReference.bytes(builder), false, builder.contentType()).v2();
-        compareStatsResponse(jsonObject, downloadStats, routing);
+        compareStatsResponse(jsonObject, pressureTrackerSegmentStats, pressureTrackerTranslogStats, routing);
     }
 
     public void testXContentBuilderWithRemoteStoreRestoredShard() throws IOException {
-        RemoteSegmentTransferTracker.Stats remotestoreRestoredShardStats = createStatsForRemoteStoreRestoredPrimary(shardId);
+        RemoteSegmentTransferTracker.Stats pressureTrackerSegmentStats = createStatsForRemoteStoreRestoredPrimary(shardId);
+        RemoteTranslogTracker.Stats pressureTrackerTranslogStats = createPressureTrackerTranslogStats(shardId);
         ShardRouting routing = createShardRouting(shardId, true);
-        RemoteStoreStats stats = new RemoteStoreStats(remotestoreRestoredShardStats, routing);
+        RemoteStoreStats stats = new RemoteStoreStats(pressureTrackerSegmentStats, pressureTrackerTranslogStats, routing);
 
         XContentBuilder builder = XContentFactory.jsonBuilder();
         stats.toXContent(builder, EMPTY_PARAMS);
         Map<String, Object> jsonObject = XContentHelper.convertToMap(BytesReference.bytes(builder), false, builder.contentType()).v2();
-        compareStatsResponse(jsonObject, remotestoreRestoredShardStats, routing);
+        compareStatsResponse(jsonObject, pressureTrackerSegmentStats, pressureTrackerTranslogStats, routing);
     }
 
     public void testSerializationForPrimaryShard() throws Exception {
-        RemoteSegmentTransferTracker.Stats primaryShardStats = createStatsForNewPrimary(shardId);
-        RemoteStoreStats stats = new RemoteStoreStats(primaryShardStats, createShardRouting(shardId, true));
+        RemoteSegmentTransferTracker.Stats pressureTrackerSegmentStats = createStatsForNewPrimary(shardId);
+        RemoteTranslogTracker.Stats pressureTrackerTranslogStats = createPressureTrackerTranslogStats(shardId);
+        RemoteStoreStats stats = new RemoteStoreStats(pressureTrackerSegmentStats, pressureTrackerTranslogStats, createShardRouting(shardId, true));
         try (BytesStreamOutput out = new BytesStreamOutput()) {
             stats.writeTo(out);
             try (StreamInput in = out.bytes().streamInput()) {
-                RemoteSegmentTransferTracker.Stats deserializedStats = new RemoteStoreStats(in).getStats();
-                assertEquals(stats.getStats().refreshTimeLagMs, deserializedStats.refreshTimeLagMs);
-                assertEquals(stats.getStats().localRefreshNumber, deserializedStats.localRefreshNumber);
-                assertEquals(stats.getStats().remoteRefreshNumber, deserializedStats.remoteRefreshNumber);
-                assertEquals(stats.getStats().uploadBytesStarted, deserializedStats.uploadBytesStarted);
-                assertEquals(stats.getStats().uploadBytesSucceeded, deserializedStats.uploadBytesSucceeded);
-                assertEquals(stats.getStats().uploadBytesFailed, deserializedStats.uploadBytesFailed);
-                assertEquals(stats.getStats().totalUploadsStarted, deserializedStats.totalUploadsStarted);
-                assertEquals(stats.getStats().totalUploadsFailed, deserializedStats.totalUploadsFailed);
-                assertEquals(stats.getStats().totalUploadsSucceeded, deserializedStats.totalUploadsSucceeded);
-                assertEquals(stats.getStats().rejectionCount, deserializedStats.rejectionCount);
-                assertEquals(stats.getStats().consecutiveFailuresCount, deserializedStats.consecutiveFailuresCount);
-                assertEquals(stats.getStats().uploadBytesMovingAverage, deserializedStats.uploadBytesMovingAverage, 0);
-                assertEquals(stats.getStats().uploadBytesPerSecMovingAverage, deserializedStats.uploadBytesPerSecMovingAverage, 0);
-                assertEquals(stats.getStats().uploadTimeMovingAverage, deserializedStats.uploadTimeMovingAverage, 0);
-                assertEquals(stats.getStats().bytesLag, deserializedStats.bytesLag);
-                assertEquals(0, deserializedStats.directoryFileTransferTrackerStats.transferredBytesStarted);
-                assertEquals(0, deserializedStats.directoryFileTransferTrackerStats.transferredBytesFailed);
-                assertEquals(0, deserializedStats.directoryFileTransferTrackerStats.transferredBytesSucceeded);
-                assertEquals(0, deserializedStats.directoryFileTransferTrackerStats.lastSuccessfulTransferInBytes);
-                assertEquals(0, deserializedStats.directoryFileTransferTrackerStats.lastTransferTimestampMs);
+                RemoteStoreStats deserializedStats = new RemoteStoreStats(in);
+                assertEquals(stats.getSegmentStats(), deserializedStats.getSegmentStats());
+                assertEquals(stats.getTranslogStats(), deserializedStats.getTranslogStats());
             }
         }
     }
 
     public void testSerializationForReplicaShard() throws Exception {
         RemoteSegmentTransferTracker.Stats replicaShardStats = createStatsForNewReplica(shardId);
-        RemoteStoreStats stats = new RemoteStoreStats(replicaShardStats, createShardRouting(shardId, false));
+        RemoteTranslogTracker.Stats pressureTrackerTranslogStats = createPressureTrackerTranslogStats(shardId);
+        RemoteStoreStats stats = new RemoteStoreStats(replicaShardStats, pressureTrackerTranslogStats, createShardRouting(shardId, false));
         try (BytesStreamOutput out = new BytesStreamOutput()) {
             stats.writeTo(out);
             try (StreamInput in = out.bytes().streamInput()) {
-                RemoteSegmentTransferTracker.Stats deserializedStats = new RemoteStoreStats(in).getStats();
-                assertEquals(0, deserializedStats.refreshTimeLagMs);
-                assertEquals(0, deserializedStats.localRefreshNumber);
-                assertEquals(0, deserializedStats.remoteRefreshNumber);
-                assertEquals(0, deserializedStats.uploadBytesStarted);
-                assertEquals(0, deserializedStats.uploadBytesSucceeded);
-                assertEquals(0, deserializedStats.uploadBytesFailed);
-                assertEquals(0, deserializedStats.totalUploadsStarted);
-                assertEquals(0, deserializedStats.totalUploadsFailed);
-                assertEquals(0, deserializedStats.totalUploadsSucceeded);
-                assertEquals(0, deserializedStats.rejectionCount);
-                assertEquals(0, deserializedStats.consecutiveFailuresCount);
-                assertEquals(0, deserializedStats.bytesLag);
-                assertEquals(
-                    stats.getStats().directoryFileTransferTrackerStats.transferredBytesStarted,
-                    deserializedStats.directoryFileTransferTrackerStats.transferredBytesStarted
-                );
-                assertEquals(
-                    stats.getStats().directoryFileTransferTrackerStats.transferredBytesFailed,
-                    deserializedStats.directoryFileTransferTrackerStats.transferredBytesFailed
-                );
-                assertEquals(
-                    stats.getStats().directoryFileTransferTrackerStats.transferredBytesSucceeded,
-                    deserializedStats.directoryFileTransferTrackerStats.transferredBytesSucceeded
-                );
-                assertEquals(
-                    stats.getStats().directoryFileTransferTrackerStats.lastSuccessfulTransferInBytes,
-                    deserializedStats.directoryFileTransferTrackerStats.lastSuccessfulTransferInBytes
-                );
-                assertEquals(
-                    stats.getStats().directoryFileTransferTrackerStats.lastTransferTimestampMs,
-                    deserializedStats.directoryFileTransferTrackerStats.lastTransferTimestampMs
-                );
-                assertEquals(
-                    stats.getStats().directoryFileTransferTrackerStats.transferredBytesPerSecMovingAverage,
-                    deserializedStats.directoryFileTransferTrackerStats.transferredBytesPerSecMovingAverage,
-                    0
-                );
-                assertEquals(
-                    stats.getStats().directoryFileTransferTrackerStats.transferredBytesMovingAverage,
-                    deserializedStats.directoryFileTransferTrackerStats.transferredBytesMovingAverage,
-                    0
-                );
+                RemoteStoreStats deserializedStats = new RemoteStoreStats(in);
+                assertEquals(stats.getSegmentStats(), deserializedStats.getSegmentStats());
+                assertEquals(stats.getTranslogStats(), deserializedStats.getTranslogStats());
             }
         }
     }
 
     public void testSerializationForRemoteStoreRestoredPrimaryShard() throws Exception {
         RemoteSegmentTransferTracker.Stats primaryShardStats = createStatsForRemoteStoreRestoredPrimary(shardId);
-        RemoteStoreStats stats = new RemoteStoreStats(primaryShardStats, createShardRouting(shardId, true));
+        RemoteTranslogTracker.Stats pressureTrackerTranslogStats = createPressureTrackerTranslogStats(shardId);
+        RemoteStoreStats stats = new RemoteStoreStats(primaryShardStats, pressureTrackerTranslogStats, createShardRouting(shardId, true));
         try (BytesStreamOutput out = new BytesStreamOutput()) {
             stats.writeTo(out);
             try (StreamInput in = out.bytes().streamInput()) {
-                RemoteSegmentTransferTracker.Stats deserializedStats = new RemoteStoreStats(in).getStats();
-                assertEquals(stats.getStats().refreshTimeLagMs, deserializedStats.refreshTimeLagMs);
-                assertEquals(stats.getStats().localRefreshNumber, deserializedStats.localRefreshNumber);
-                assertEquals(stats.getStats().remoteRefreshNumber, deserializedStats.remoteRefreshNumber);
-                assertEquals(stats.getStats().uploadBytesStarted, deserializedStats.uploadBytesStarted);
-                assertEquals(stats.getStats().uploadBytesSucceeded, deserializedStats.uploadBytesSucceeded);
-                assertEquals(stats.getStats().uploadBytesFailed, deserializedStats.uploadBytesFailed);
-                assertEquals(stats.getStats().totalUploadsStarted, deserializedStats.totalUploadsStarted);
-                assertEquals(stats.getStats().totalUploadsFailed, deserializedStats.totalUploadsFailed);
-                assertEquals(stats.getStats().totalUploadsSucceeded, deserializedStats.totalUploadsSucceeded);
-                assertEquals(stats.getStats().rejectionCount, deserializedStats.rejectionCount);
-                assertEquals(stats.getStats().consecutiveFailuresCount, deserializedStats.consecutiveFailuresCount);
-                assertEquals(stats.getStats().uploadBytesMovingAverage, deserializedStats.uploadBytesMovingAverage, 0);
-                assertEquals(stats.getStats().uploadBytesPerSecMovingAverage, deserializedStats.uploadBytesPerSecMovingAverage, 0);
-                assertEquals(stats.getStats().uploadTimeMovingAverage, deserializedStats.uploadTimeMovingAverage, 0);
-                assertEquals(stats.getStats().bytesLag, deserializedStats.bytesLag);
-                assertEquals(
-                    stats.getStats().directoryFileTransferTrackerStats.transferredBytesStarted,
-                    deserializedStats.directoryFileTransferTrackerStats.transferredBytesStarted
-                );
-                assertEquals(
-                    stats.getStats().directoryFileTransferTrackerStats.transferredBytesFailed,
-                    deserializedStats.directoryFileTransferTrackerStats.transferredBytesFailed
-                );
-                assertEquals(
-                    stats.getStats().directoryFileTransferTrackerStats.transferredBytesSucceeded,
-                    deserializedStats.directoryFileTransferTrackerStats.transferredBytesSucceeded
-                );
-                assertEquals(
-                    stats.getStats().directoryFileTransferTrackerStats.lastSuccessfulTransferInBytes,
-                    deserializedStats.directoryFileTransferTrackerStats.lastSuccessfulTransferInBytes
-                );
-                assertEquals(
-                    stats.getStats().directoryFileTransferTrackerStats.lastTransferTimestampMs,
-                    deserializedStats.directoryFileTransferTrackerStats.lastTransferTimestampMs
-                );
-                assertEquals(
-                    stats.getStats().directoryFileTransferTrackerStats.transferredBytesPerSecMovingAverage,
-                    deserializedStats.directoryFileTransferTrackerStats.transferredBytesPerSecMovingAverage,
-                    0
-                );
-                assertEquals(
-                    stats.getStats().directoryFileTransferTrackerStats.transferredBytesMovingAverage,
-                    deserializedStats.directoryFileTransferTrackerStats.transferredBytesMovingAverage,
-                    0
-                );
+                RemoteStoreStats deserializedStats = new RemoteStoreStats(in);
+                assertEquals(stats.getSegmentStats(), deserializedStats.getSegmentStats());
+                assertEquals(stats.getTranslogStats(), deserializedStats.getTranslogStats());
             }
         }
     }
