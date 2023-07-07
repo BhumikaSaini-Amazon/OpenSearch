@@ -14,6 +14,7 @@ import org.opensearch.core.common.io.stream.Writeable;
 import org.opensearch.core.xcontent.ToXContentFragment;
 import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.index.remote.RemoteRefreshSegmentTracker;
+import org.opensearch.index.remote.RemoteTranslogTracker;
 
 import java.io.IOException;
 
@@ -25,17 +26,27 @@ import java.io.IOException;
 public class RemoteStoreStats implements Writeable, ToXContentFragment {
 
     private final RemoteRefreshSegmentTracker.Stats remoteSegmentUploadShardStats;
+    private final RemoteTranslogTracker.Stats remoteTranslogShardStats;
 
-    public RemoteStoreStats(RemoteRefreshSegmentTracker.Stats remoteSegmentUploadShardStats) {
+    public RemoteStoreStats(
+        RemoteRefreshSegmentTracker.Stats remoteSegmentUploadShardStats,
+        RemoteTranslogTracker.Stats remoteTranslogShardStats
+    ) {
         this.remoteSegmentUploadShardStats = remoteSegmentUploadShardStats;
+        this.remoteTranslogShardStats = remoteTranslogShardStats;
     }
 
     public RemoteStoreStats(StreamInput in) throws IOException {
         remoteSegmentUploadShardStats = in.readOptionalWriteable(RemoteRefreshSegmentTracker.Stats::new);
+        remoteTranslogShardStats = in.readOptionalWriteable(RemoteTranslogTracker.Stats::new);
     }
 
-    public RemoteRefreshSegmentTracker.Stats getStats() {
+    public RemoteRefreshSegmentTracker.Stats getSegmentStats() {
         return remoteSegmentUploadShardStats;
+    }
+
+    public RemoteTranslogTracker.Stats getTranslogStats() {
+        return remoteTranslogShardStats;
     }
 
     @Override
@@ -74,6 +85,40 @@ public class RemoteStoreStats implements Writeable, ToXContentFragment {
         builder.startObject(Fields.REMOTE_REFRESH_LATENCY_IN_MILLIS);
         builder.field(SubFields.MOVING_AVG, remoteSegmentUploadShardStats.uploadTimeMovingAverage);
         builder.endObject();
+
+        builder.startObject("translog");
+        builder.startObject("upload");
+        builder.field(Fields.LAST_UPLOAD_TIMESTAMP, remoteTranslogShardStats.lastUploadTimestamp);
+
+        builder.startObject(Fields.TOTAL_UPLOADS);
+        builder.field(SubFields.STARTED, remoteTranslogShardStats.totalUploadsStarted)
+            .field(SubFields.FAILED, remoteTranslogShardStats.totalUploadsFailed)
+            .field(SubFields.SUCCEEDED, remoteTranslogShardStats.totalUploadsSucceeded);
+        builder.endObject();
+
+        builder.startObject(Fields.TOTAL_UPLOADS_IN_BYTES);
+        builder.field(SubFields.STARTED, remoteTranslogShardStats.uploadBytesStarted)
+            .field(SubFields.FAILED, remoteTranslogShardStats.uploadBytesFailed)
+            .field(SubFields.SUCCEEDED, remoteTranslogShardStats.uploadBytesSucceeded);
+        builder.endObject();
+
+        builder.field(Fields.TOTAL_UPLOAD_TIME_IN_MILLIS, remoteTranslogShardStats.totalUploadTimeInMillis);
+
+        builder.startObject(Fields.UPLOAD_BYTES);
+        builder.field(SubFields.MOVING_AVG, remoteTranslogShardStats.uploadBytesMovingAverage);
+        builder.endObject();
+
+        builder.startObject(Fields.UPLOAD_LATENCY_IN_BYTES_PER_SEC);
+        builder.field(SubFields.MOVING_AVG, remoteTranslogShardStats.uploadBytesPerSecMovingAverage);
+        builder.endObject();
+
+        builder.startObject(Fields.UPLOAD_TIME_IN_MILLIS);
+        builder.field(SubFields.MOVING_AVG, remoteTranslogShardStats.uploadTimeMovingAverage);
+        builder.endObject();
+
+        builder.endObject(); // translog.upload
+        builder.endObject(); // translog
+
         builder.endObject();
 
         return builder;
@@ -82,6 +127,7 @@ public class RemoteStoreStats implements Writeable, ToXContentFragment {
     @Override
     public void writeTo(StreamOutput out) throws IOException {
         out.writeOptionalWriteable(remoteSegmentUploadShardStats);
+        out.writeOptionalWriteable(remoteTranslogShardStats);
     }
 
     /**
@@ -149,6 +195,31 @@ public class RemoteStoreStats implements Writeable, ToXContentFragment {
          * Time taken by a single remote refresh
          */
         static final String REMOTE_REFRESH_LATENCY_IN_MILLIS = "remote_refresh_latency_in_millis";
+
+        /**
+         *
+         */
+        static final String LAST_UPLOAD_TIMESTAMP = "last_upload_timestamp";
+
+        /**
+         *
+         */
+        static final String TOTAL_UPLOADS = "total_uploads";
+
+        /**
+         *
+         */
+        static final String TOTAL_UPLOAD_TIME_IN_MILLIS = "total_upload_time_in_millis";
+
+        /**
+         *
+         */
+        static final String UPLOAD_BYTES = "upload_bytes";
+
+        /**
+         *
+         */
+        static final String UPLOAD_TIME_IN_MILLIS = "upload_time_in_millis";
     }
 
     /**
