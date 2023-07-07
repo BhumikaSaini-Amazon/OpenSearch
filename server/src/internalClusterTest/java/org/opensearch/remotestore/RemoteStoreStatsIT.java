@@ -53,10 +53,10 @@ public class RemoteStoreStatsIT extends RemoteStoreBaseIntegTestCase {
             assertTrue(response.getShards() != null && response.getShards().length != 0);
             final String indexShardId = String.format(Locale.ROOT, "[%s][%s]", INDEX_NAME, shardId);
             List<RemoteStoreStats> matches = Arrays.stream(response.getShards())
-                .filter(stat -> indexShardId.equals(stat.getStats().shardId.toString()))
+                .filter(stat -> indexShardId.equals(stat.getSegmentStats().shardId.toString()))
                 .collect(Collectors.toList());
             assertEquals(1, matches.size());
-            RemoteRefreshSegmentTracker.Stats stats = matches.get(0).getStats();
+            RemoteRefreshSegmentTracker.Stats stats = matches.get(0).getSegmentStats();
             assertResponseStats(stats);
         }
     }
@@ -81,7 +81,7 @@ public class RemoteStoreStatsIT extends RemoteStoreBaseIntegTestCase {
         RemoteStoreStatsResponse response = remoteStoreStatsRequestBuilder.get();
         assertTrue(response.getSuccessfulShards() == 3);
         assertTrue(response.getShards() != null && response.getShards().length == 3);
-        RemoteRefreshSegmentTracker.Stats stats = response.getShards()[0].getStats();
+        RemoteRefreshSegmentTracker.Stats stats = response.getShards()[0].getSegmentStats();
         assertResponseStats(stats);
     }
 
@@ -107,7 +107,7 @@ public class RemoteStoreStatsIT extends RemoteStoreBaseIntegTestCase {
             RemoteStoreStatsResponse response = remoteStoreStatsRequestBuilder.get();
             assertTrue(response.getSuccessfulShards() == 1);
             assertTrue(response.getShards() != null && response.getShards().length == 1);
-            RemoteRefreshSegmentTracker.Stats stats = response.getShards()[0].getStats();
+            RemoteRefreshSegmentTracker.Stats stats = response.getShards()[0].getSegmentStats();
             assertResponseStats(stats);
         }
     }

@@ -8,7 +8,14 @@
 
 package org.opensearch.index.remote;
 
+import org.opensearch.index.translog.transfer.FileSnapshot;
+import org.opensearch.index.translog.transfer.FileTransferTracker;
+import org.opensearch.index.translog.transfer.TransferSnapshot;
+
+import java.io.IOException;
 import java.util.Arrays;
+import java.util.HashSet;
+import java.util.Set;
 
 /**
  * Utils for remote store
@@ -68,5 +75,30 @@ public class RemoteStoreUtils {
         }
 
         return filename.substring(0, endIdx);
+    }
+
+    public static Set<FileSnapshot.TransferFileSnapshot> getUploadBlobsFromSnapshot(
+        TransferSnapshot transferSnapshot,
+        FileTransferTracker fileTransferTracker
+    ) {
+        Set<FileSnapshot.TransferFileSnapshot> toUpload = new HashSet<>(transferSnapshot.getTranslogTransferMetadata().getCount());
+        toUpload.addAll(fileTransferTracker.exclusionFilter(transferSnapshot.getTranslogFileSnapshots()));
+        toUpload.addAll(fileTransferTracker.exclusionFilter((transferSnapshot.getCheckpointFileSnapshots())));
+
+        return toUpload;
+    }
+
+    public static long getCurrentSystemNanoTime() {
+        return System.nanoTime();
+    }
+
+    public static long getTotalBytes(Set<FileSnapshot.TransferFileSnapshot> files) {
+        return files.stream().map(blob -> {
+            try {
+                return blob.getContentLength();
+            } catch (IOException e) {
+                throw new RuntimeException(e);
+            }
+        }).reduce(0L, Long::sum);
     }
 }

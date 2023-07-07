@@ -26,7 +26,7 @@ import static org.mockito.Mockito.mock;
 
 public class RemoteRefreshSegmentTrackerTests extends OpenSearchTestCase {
 
-    private RemoteRefreshSegmentPressureSettings pressureSettings;
+    private RemoteStorePressureSettings pressureSettings;
 
     private ClusterService clusterService;
 
@@ -45,11 +45,7 @@ public class RemoteRefreshSegmentTrackerTests extends OpenSearchTestCase {
             new ClusterSettings(Settings.EMPTY, ClusterSettings.BUILT_IN_CLUSTER_SETTINGS),
             threadPool
         );
-        pressureSettings = new RemoteRefreshSegmentPressureSettings(
-            clusterService,
-            Settings.EMPTY,
-            mock(RemoteRefreshSegmentPressureService.class)
-        );
+        pressureSettings = new RemoteStorePressureSettings(clusterService, Settings.EMPTY, mock(RemoteStorePressureService.class));
         shardId = new ShardId("index", "uuid", 0);
     }
 
@@ -324,84 +320,87 @@ public class RemoteRefreshSegmentTrackerTests extends OpenSearchTestCase {
     }
 
     public void testIsUploadBytesAverageReady() {
+        int uploadBytesMovingAverageWindowSize = 20;
         pressureTracker = new RemoteRefreshSegmentTracker(
             shardId,
-            pressureSettings.getUploadBytesMovingAverageWindowSize(),
+            uploadBytesMovingAverageWindowSize,
             pressureSettings.getUploadBytesPerSecMovingAverageWindowSize(),
             pressureSettings.getUploadTimeMovingAverageWindowSize()
         );
         assertFalse(pressureTracker.isUploadBytesAverageReady());
 
         long sum = 0;
-        for (int i = 1; i < 20; i++) {
+        for (int i = 1; i < uploadBytesMovingAverageWindowSize; i++) {
             pressureTracker.addUploadBytes(i);
             sum += i;
             assertFalse(pressureTracker.isUploadBytesAverageReady());
             assertEquals((double) sum / i, pressureTracker.getUploadBytesAverage(), 0.0d);
         }
 
-        pressureTracker.addUploadBytes(20);
-        sum += 20;
+        pressureTracker.addUploadBytes(uploadBytesMovingAverageWindowSize);
+        sum += uploadBytesMovingAverageWindowSize;
         assertTrue(pressureTracker.isUploadBytesAverageReady());
-        assertEquals((double) sum / 20, pressureTracker.getUploadBytesAverage(), 0.0d);
+        assertEquals((double) sum / uploadBytesMovingAverageWindowSize, pressureTracker.getUploadBytesAverage(), 0.0d);
 
         pressureTracker.addUploadBytes(100);
         sum = sum + 100 - 1;
-        assertEquals((double) sum / 20, pressureTracker.getUploadBytesAverage(), 0.0d);
+        assertEquals((double) sum / uploadBytesMovingAverageWindowSize, pressureTracker.getUploadBytesAverage(), 0.0d);
     }
 
     public void testIsUploadBytesPerSecAverageReady() {
+        int uploadBytesPerSecMovingAverageWindowSize = 20;
         pressureTracker = new RemoteRefreshSegmentTracker(
             shardId,
             pressureSettings.getUploadBytesMovingAverageWindowSize(),
-            pressureSettings.getUploadBytesPerSecMovingAverageWindowSize(),
+            uploadBytesPerSecMovingAverageWindowSize,
             pressureSettings.getUploadTimeMovingAverageWindowSize()
         );
         assertFalse(pressureTracker.isUploadBytesPerSecAverageReady());
 
         long sum = 0;
-        for (int i = 1; i < 20; i++) {
+        for (int i = 1; i < uploadBytesPerSecMovingAverageWindowSize; i++) {
             pressureTracker.addUploadBytesPerSec(i);
             sum += i;
             assertFalse(pressureTracker.isUploadBytesPerSecAverageReady());
             assertEquals((double) sum / i, pressureTracker.getUploadBytesPerSecAverage(), 0.0d);
         }
 
-        pressureTracker.addUploadBytesPerSec(20);
-        sum += 20;
+        pressureTracker.addUploadBytesPerSec(uploadBytesPerSecMovingAverageWindowSize);
+        sum += uploadBytesPerSecMovingAverageWindowSize;
         assertTrue(pressureTracker.isUploadBytesPerSecAverageReady());
-        assertEquals((double) sum / 20, pressureTracker.getUploadBytesPerSecAverage(), 0.0d);
+        assertEquals((double) sum / uploadBytesPerSecMovingAverageWindowSize, pressureTracker.getUploadBytesPerSecAverage(), 0.0d);
 
         pressureTracker.addUploadBytesPerSec(100);
         sum = sum + 100 - 1;
-        assertEquals((double) sum / 20, pressureTracker.getUploadBytesPerSecAverage(), 0.0d);
+        assertEquals((double) sum / uploadBytesPerSecMovingAverageWindowSize, pressureTracker.getUploadBytesPerSecAverage(), 0.0d);
     }
 
     public void testIsUploadTimeMsAverageReady() {
+        int uploadTimeMovingAverageWindowSize = 20;
         pressureTracker = new RemoteRefreshSegmentTracker(
             shardId,
             pressureSettings.getUploadBytesMovingAverageWindowSize(),
             pressureSettings.getUploadBytesPerSecMovingAverageWindowSize(),
-            pressureSettings.getUploadTimeMovingAverageWindowSize()
+            uploadTimeMovingAverageWindowSize
         );
         assertFalse(pressureTracker.isUploadTimeMsAverageReady());
 
         long sum = 0;
-        for (int i = 1; i < 20; i++) {
+        for (int i = 1; i < uploadTimeMovingAverageWindowSize; i++) {
             pressureTracker.addUploadTimeMs(i);
             sum += i;
             assertFalse(pressureTracker.isUploadTimeMsAverageReady());
             assertEquals((double) sum / i, pressureTracker.getUploadTimeMsAverage(), 0.0d);
         }
 
-        pressureTracker.addUploadTimeMs(20);
-        sum += 20;
+        pressureTracker.addUploadTimeMs(uploadTimeMovingAverageWindowSize);
+        sum += uploadTimeMovingAverageWindowSize;
         assertTrue(pressureTracker.isUploadTimeMsAverageReady());
-        assertEquals((double) sum / 20, pressureTracker.getUploadTimeMsAverage(), 0.0d);
+        assertEquals((double) sum / uploadTimeMovingAverageWindowSize, pressureTracker.getUploadTimeMsAverage(), 0.0d);
 
         pressureTracker.addUploadTimeMs(100);
         sum = sum + 100 - 1;
-        assertEquals((double) sum / 20, pressureTracker.getUploadTimeMsAverage(), 0.0d);
+        assertEquals((double) sum / uploadTimeMovingAverageWindowSize, pressureTracker.getUploadTimeMsAverage(), 0.0d);
     }
 
     /**
