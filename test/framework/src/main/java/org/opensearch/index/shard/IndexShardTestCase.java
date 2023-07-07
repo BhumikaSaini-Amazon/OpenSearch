@@ -93,7 +93,7 @@ import org.opensearch.index.engine.EngineTestCase;
 import org.opensearch.index.engine.InternalEngineFactory;
 import org.opensearch.index.mapper.MapperService;
 import org.opensearch.index.mapper.SourceToParse;
-import org.opensearch.index.remote.RemoteRefreshSegmentPressureService;
+import org.opensearch.index.remote.RemoteStorePressureService;
 import org.opensearch.index.replication.TestReplicationSource;
 import org.opensearch.index.seqno.ReplicationTracker;
 import org.opensearch.index.seqno.RetentionLeaseSyncer;
@@ -579,7 +579,7 @@ public abstract class IndexShardTestCase extends OpenSearchTestCase {
                 clusterSettings
             );
 
-            RemoteRefreshSegmentPressureService remoteRefreshSegmentPressureService = null;
+            RemoteStorePressureService remoteStorePressureService;
             if (indexSettings.isRemoteStoreEnabled()) {
                 if (remoteStore == null) {
                     Path remoteStorePath;
@@ -591,15 +591,19 @@ public abstract class IndexShardTestCase extends OpenSearchTestCase {
                     }
                     remoteStore = createRemoteStore(remoteStorePath, routing, indexMetadata);
                 }
-                remoteRefreshSegmentPressureService = new RemoteRefreshSegmentPressureService(clusterService, indexSettings.getSettings());
+                remoteStorePressureService = new RemoteStorePressureService(clusterService, indexSettings.getSettings());
+            } else {
+                remoteStorePressureService = null;
             }
 
             final BiFunction<IndexSettings, ShardRouting, TranslogFactory> translogFactorySupplier = (settings, shardRouting) -> {
                 if (settings.isRemoteTranslogStoreEnabled() && shardRouting.primary()) {
+                    assert remoteStorePressureService != null;
                     return new RemoteBlobStoreInternalTranslogFactory(
                         this::createRepositoriesService,
                         threadPool,
-                        settings.getRemoteStoreTranslogRepository()
+                        settings.getRemoteStoreTranslogRepository(),
+                        remoteStorePressureService.getRemoteTranslogTracker(shardRouting.shardId())
                     );
                 }
                 return new InternalTranslogFactory();
@@ -628,11 +632,11 @@ public abstract class IndexShardTestCase extends OpenSearchTestCase {
                 translogFactorySupplier,
                 checkpointPublisher,
                 remoteStore,
-                remoteRefreshSegmentPressureService
+                remoteStorePressureService
             );
             indexShard.addShardFailureCallback(DEFAULT_SHARD_FAILURE_HANDLER);
-            if (remoteRefreshSegmentPressureService != null) {
-                remoteRefreshSegmentPressureService.afterIndexShardCreated(indexShard);
+            if (remoteStorePressureService != null) {
+                remoteStorePressureService.afterIndexShardCreated(indexShard);
             }
             success = true;
         } finally {

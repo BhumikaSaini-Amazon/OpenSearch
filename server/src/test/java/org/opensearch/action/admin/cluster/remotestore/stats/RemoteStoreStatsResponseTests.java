@@ -15,6 +15,7 @@ import org.opensearch.common.xcontent.XContentHelper;
 import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.index.remote.RemoteRefreshSegmentTracker;
 import org.opensearch.core.index.shard.ShardId;
+import org.opensearch.index.remote.RemoteTranslogTracker;
 import org.opensearch.test.OpenSearchTestCase;
 import org.opensearch.threadpool.TestThreadPool;
 import org.opensearch.threadpool.ThreadPool;
@@ -23,7 +24,8 @@ import java.util.ArrayList;
 import java.util.Map;
 
 import static org.opensearch.action.admin.cluster.remotestore.stats.RemoteStoreStatsTestHelper.compareStatsResponse;
-import static org.opensearch.action.admin.cluster.remotestore.stats.RemoteStoreStatsTestHelper.createPressureTrackerStats;
+import static org.opensearch.action.admin.cluster.remotestore.stats.RemoteStoreStatsTestHelper.createPressureTrackerSegmentStats;
+import static org.opensearch.action.admin.cluster.remotestore.stats.RemoteStoreStatsTestHelper.createPressureTrackerTranslogStats;
 import static org.opensearch.core.xcontent.ToXContent.EMPTY_PARAMS;
 
 public class RemoteStoreStatsResponseTests extends OpenSearchTestCase {
@@ -44,8 +46,9 @@ public class RemoteStoreStatsResponseTests extends OpenSearchTestCase {
     }
 
     public void testSerialization() throws Exception {
-        RemoteRefreshSegmentTracker.Stats pressureTrackerStats = createPressureTrackerStats(shardId);
-        RemoteStoreStats stats = new RemoteStoreStats(pressureTrackerStats);
+        RemoteRefreshSegmentTracker.Stats pressureTrackerSegmentStats = createPressureTrackerSegmentStats(shardId);
+        RemoteTranslogTracker.Stats pressureTrackerTranslogStats = createPressureTrackerTranslogStats(shardId);
+        RemoteStoreStats stats = new RemoteStoreStats(pressureTrackerSegmentStats, pressureTrackerTranslogStats);
         RemoteStoreStatsResponse statsResponse = new RemoteStoreStatsResponse(
             new RemoteStoreStats[] { stats },
             1,
@@ -67,6 +70,6 @@ public class RemoteStoreStatsResponseTests extends OpenSearchTestCase {
         assertEquals(shardsObject.get("total"), 1);
         assertEquals(shardsObject.get("successful"), 1);
         assertEquals(shardsObject.get("failed"), 0);
-        compareStatsResponse(statsObject, pressureTrackerStats);
+        compareStatsResponse(statsObject, pressureTrackerSegmentStats, pressureTrackerTranslogStats);
     }
 }
