@@ -115,9 +115,9 @@ public class RemoteStoreIT extends RemoteStoreBaseIntegTestCase {
     private void testRestoreFlow(boolean remoteTranslog, int numberOfIterations, boolean invokeFlush) throws IOException {
         internalCluster().startDataOnlyNodes(3);
         if (remoteTranslog) {
-            createIndex(INDEX_NAME, remoteTranslogIndexSettings(0));
+            createIndex(INDEX_NAME, remoteTranslogIndexSettings(0, 5));
         } else {
-            createIndex(INDEX_NAME, remoteStoreIndexSettings(0));
+            createIndex(INDEX_NAME, remoteStoreIndexSettings(0, 5));
         }
         ensureYellowAndNoInitializingShards(INDEX_NAME);
         ensureGreen(INDEX_NAME);
