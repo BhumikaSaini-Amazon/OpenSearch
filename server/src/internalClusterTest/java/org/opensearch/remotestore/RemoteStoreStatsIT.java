@@ -15,6 +15,8 @@ import org.opensearch.action.admin.cluster.remotestore.stats.RemoteStoreStatsRes
 import org.opensearch.cluster.ClusterState;
 import org.opensearch.cluster.node.DiscoveryNode;
 import org.opensearch.index.remote.RemoteRefreshSegmentTracker;
+import org.opensearch.index.remote.RemoteStoreUtils;
+import org.opensearch.index.remote.RemoteTranslogTracker;
 import org.opensearch.test.OpenSearchIntegTestCase;
 
 import java.util.Arrays;
@@ -26,10 +28,12 @@ import java.util.stream.Collectors;
 public class RemoteStoreStatsIT extends RemoteStoreBaseIntegTestCase {
 
     private static final String INDEX_NAME = "remote-store-test-idx-1";
+    private long timeBeforeIndexing;
 
     @Before
     public void setup() {
         setupRepo();
+        timeBeforeIndexing  = RemoteStoreUtils.getCurrentSystemNanoTime() / 1_000_000L;
     }
 
     public void testStatsResponseFromAllNodes() {
@@ -56,8 +60,13 @@ public class RemoteStoreStatsIT extends RemoteStoreBaseIntegTestCase {
                 .filter(stat -> indexShardId.equals(stat.getSegmentStats().shardId.toString()))
                 .collect(Collectors.toList());
             assertEquals(1, matches.size());
-            RemoteRefreshSegmentTracker.Stats stats = matches.get(0).getSegmentStats();
-            assertResponseStats(stats);
+            RemoteRefreshSegmentTracker.Stats segmentStats = matches.get(0).getSegmentStats();
+            matches = Arrays.stream(response.getShards())
+                .filter(stat -> indexShardId.equals(stat.getTranslogStats().shardId.toString()))
+                .collect(Collectors.toList());
+            assertEquals(1, matches.size());
+            RemoteTranslogTracker.Stats translogStats = matches.get(0).getTranslogStats();
+            assertResponseStats(segmentStats, translogStats);
         }
     }
 
@@ -81,8 +90,9 @@ public class RemoteStoreStatsIT extends RemoteStoreBaseIntegTestCase {
         RemoteStoreStatsResponse response = remoteStoreStatsRequestBuilder.get();
         assertTrue(response.getSuccessfulShards() == 3);
         assertTrue(response.getShards() != null && response.getShards().length == 3);
-        RemoteRefreshSegmentTracker.Stats stats = response.getShards()[0].getSegmentStats();
-        assertResponseStats(stats);
+        RemoteRefreshSegmentTracker.Stats segmentStats = response.getShards()[0].getSegmentStats();
+        RemoteTranslogTracker.Stats translogStats = response.getShards()[0].getTranslogStats();
+        assertResponseStats(segmentStats, translogStats);
     }
 
     public void testStatsResponseFromLocalNode() {
@@ -107,8 +117,9 @@ public class RemoteStoreStatsIT extends RemoteStoreBaseIntegTestCase {
             RemoteStoreStatsResponse response = remoteStoreStatsRequestBuilder.get();
             assertTrue(response.getSuccessfulShards() == 1);
             assertTrue(response.getShards() != null && response.getShards().length == 1);
-            RemoteRefreshSegmentTracker.Stats stats = response.getShards()[0].getSegmentStats();
-            assertResponseStats(stats);
+            RemoteRefreshSegmentTracker.Stats segmentStats = response.getShards()[0].getSegmentStats();
+            RemoteTranslogTracker.Stats translogStats = response.getShards()[0].getTranslogStats();
+            assertResponseStats(segmentStats, translogStats);
         }
     }
 
@@ -127,20 +138,39 @@ public class RemoteStoreStatsIT extends RemoteStoreBaseIntegTestCase {
         }
     }
 
-    private void assertResponseStats(RemoteRefreshSegmentTracker.Stats stats) {
-        assertEquals(0, stats.refreshTimeLagMs);
-        assertEquals(stats.localRefreshNumber, stats.remoteRefreshNumber);
-        assertTrue(stats.uploadBytesStarted > 0);
-        assertEquals(0, stats.uploadBytesFailed);
-        assertTrue(stats.uploadBytesSucceeded > 0);
-        assertTrue(stats.totalUploadsStarted > 0);
-        assertEquals(0, stats.totalUploadsFailed);
-        assertTrue(stats.totalUploadsSucceeded > 0);
-        assertEquals(0, stats.rejectionCount);
-        assertEquals(0, stats.consecutiveFailuresCount);
-        assertEquals(0, stats.bytesLag);
-        assertTrue(stats.uploadBytesMovingAverage > 0);
-        assertTrue(stats.uploadBytesPerSecMovingAverage > 0);
-        assertTrue(stats.uploadTimeMovingAverage > 0);
+    private void assertResponseStats(RemoteRefreshSegmentTracker.Stats segmentStats, RemoteTranslogTracker.Stats translogStats) {
+        assertResponseSegmentStats(segmentStats);
+        assertResponseTranslogStats(translogStats);
+    }
+
+    private void assertResponseSegmentStats(RemoteRefreshSegmentTracker.Stats segmentStats) {
+        assertEquals(0, segmentStats.refreshTimeLagMs);
+        assertEquals(segmentStats.localRefreshNumber, segmentStats.remoteRefreshNumber);
+        assertTrue(segmentStats.uploadBytesStarted > 0);
+        assertEquals(0, segmentStats.uploadBytesFailed);
+        assertTrue(segmentStats.uploadBytesSucceeded > 0);
+        assertTrue(segmentStats.totalUploadsStarted > 0);
+        assertEquals(0, segmentStats.totalUploadsFailed);
+        assertTrue(segmentStats.totalUploadsSucceeded > 0);
+        assertEquals(0, segmentStats.rejectionCount);
+        assertEquals(0, segmentStats.consecutiveFailuresCount);
+        assertEquals(0, segmentStats.bytesLag);
+        assertTrue(segmentStats.uploadBytesMovingAverage > 0);
+        assertTrue(segmentStats.uploadBytesPerSecMovingAverage > 0);
+        assertTrue(segmentStats.uploadTimeMovingAverage > 0);
+    }
+
+    private void assertResponseTranslogStats(RemoteTranslogTracker.Stats translogStats) {
+        assertTrue(translogStats.lastUploadTimestamp > timeBeforeIndexing);
+        assertTrue(translogStats.totalUploadsStarted > 0);
+        assertTrue(translogStats.totalUploadsSucceeded > 0);
+        assertEquals(0, translogStats.totalUploadsFailed);
+        assertTrue(translogStats.uploadBytesStarted > 0);
+        assertTrue(translogStats.uploadBytesSucceeded > 0);
+        assertEquals(0, translogStats.uploadBytesFailed);
+        assertTrue(translogStats.totalUploadTimeInMillis > 0);
+        assertTrue(translogStats.uploadBytesMovingAverage > 0);
+        assertTrue(translogStats.uploadBytesPerSecMovingAverage > 0);
+        assertTrue(translogStats.uploadTimeMovingAverage > 0);
     }
 }

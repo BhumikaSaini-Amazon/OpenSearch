@@ -93,6 +93,7 @@ public class RemoteFsTranslog extends Translog {
         this.primaryModeSupplier = primaryModeSupplier;
         fileTransferTracker = new FileTransferTracker(shardId);
         this.translogTransferManager = buildTranslogTransferManager(blobStoreRepository, threadPool, shardId, fileTransferTracker);
+        this.remoteTranslogTracker = remoteTranslogTracker;
         try {
             download(translogTransferManager, location, logger);
             Checkpoint checkpoint = readCheckpoint(location);
@@ -121,7 +122,6 @@ public class RemoteFsTranslog extends Translog {
                     IOUtils.closeWhileHandlingException(readers);
                 }
             }
-            this.remoteTranslogTracker = remoteTranslogTracker;
         } catch (Exception e) {
             // close the opened translog files if we fail to create a new translog...
             IOUtils.closeWhileHandlingException(current);
