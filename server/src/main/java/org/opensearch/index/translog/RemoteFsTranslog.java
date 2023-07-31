@@ -273,35 +273,30 @@ public class RemoteFsTranslog extends Translog {
             Releasable transferReleasable = Releasables.wrap(deletionPolicy.acquireTranslogGen(getMinFileGeneration()));
             return translogTransferManager.transferSnapshot(transferSnapshotProvider, new TranslogTransferListener() {
                 /**
-                 *
+                 * Tracker holding stats related to Remote Translog Store operations
                  */
                 final RemoteTranslogTracker remoteTranslogTracker = RemoteFsTranslog.this.remoteTranslogTracker;
 
                 /**
-                 *
+                 * Files (.tlog, .ckp, metadata) to upload to Remote Translog Store
                  */
                 Set<FileSnapshot.TransferFileSnapshot> toUpload;
 
                 /**
-                 *
+                 * Total bytes to be uploaded to Remote Translog Store
                  */
                 long uploadBytes;
 
                 /**
-                 *
+                 * System nano time when the Remote Translog Store upload is started
                  */
                 long uploadStartTime;
 
                 /**
-                 *
+                 * System nano time when the Remote Translog Store upload is completed
                  */
                 long uploadEndTime;
 
-                /**
-                 *
-                 * @param transferSnapshot the transfer snapshot
-                 * @throws IOException
-                 */
                 @Override
                 public void beforeUpload(TransferSnapshot transferSnapshot) throws IOException {
                     toUpload = RemoteStoreUtils.getUploadBlobsFromSnapshot(transferSnapshot, fileTransferTracker);
@@ -311,11 +306,6 @@ public class RemoteFsTranslog extends Translog {
                     captureStatsBeforeUpload();
                 }
 
-                /**
-                 *
-                 * @param transferSnapshot the transfer snapshot
-                 * @throws IOException
-                 */
                 @Override
                 public void onUploadComplete(TransferSnapshot transferSnapshot) throws IOException {
                     uploadEndTime = RemoteStoreUtils.getCurrentSystemNanoTime();
@@ -328,12 +318,6 @@ public class RemoteFsTranslog extends Translog {
                     logger.trace("uploaded translog for {} {} ", primaryTerm, generation);
                 }
 
-                /**
-                 *
-                 * @param transferSnapshot the transfer snapshot
-                 * @param ex the exception while processing the {@link TransferSnapshot}
-                 * @throws IOException
-                 */
                 @Override
                 public void onUploadFailed(TransferSnapshot transferSnapshot, Exception ex) throws IOException {
                     uploadEndTime = RemoteStoreUtils.getCurrentSystemNanoTime();
@@ -349,11 +333,17 @@ public class RemoteFsTranslog extends Translog {
                     }
                 }
 
+                /**
+                 * Adds relevant stats to the tracker when an upload is started
+                 */
                 private void captureStatsBeforeUpload() {
                     remoteTranslogTracker.incrementUploadsStarted();
                     remoteTranslogTracker.addUploadBytesStarted(uploadBytes);
                 }
 
+                /**
+                 * Adds relevant stats to the tracker when an upload is successfully completed
+                 */
                 private void captureStatsOnUploadSuccess() {
                     long uploadDurationInMillis = (uploadEndTime - uploadStartTime) / 1_000_000L;
                     remoteTranslogTracker.incrementUploadsSucceeded();
@@ -369,6 +359,9 @@ public class RemoteFsTranslog extends Translog {
                     remoteTranslogTracker.updateUploadTimeMovingAverage(uploadDurationInMillis);
                 }
 
+                /**
+                 * Adds relevant stats to the tracker when an upload has failed
+                 */
                 private void captureStatsOnUploadFailure() {
                     remoteTranslogTracker.incrementUploadsFailed();
                     remoteTranslogTracker.addUploadTimeInMillis((uploadEndTime - uploadStartTime) / 1_000_000L);
