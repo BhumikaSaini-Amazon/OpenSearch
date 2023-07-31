@@ -1864,6 +1864,6 @@ public class IndicesService extends AbstractLifecycleComponent
     }
 
     public void setPressureService(RemoteStorePressureService pressureService) {
-        pressureServiceSetOnce.set(pressureService);
+        pressureServiceSetOnce.trySet(pressureService);
     }
 }
