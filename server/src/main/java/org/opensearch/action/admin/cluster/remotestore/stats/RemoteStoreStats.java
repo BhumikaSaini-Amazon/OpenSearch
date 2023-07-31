@@ -25,12 +25,22 @@ import java.io.IOException;
  * @opensearch.internal
  */
 public class RemoteStoreStats implements Writeable, ToXContentFragment {
-
+    /**
+     * Stats related to Remote Segment Store operations
+     */
     private final RemoteSegmentTransferTracker.Stats remoteSegmentShardStats;
+
+    /**
+     * Stats related to Remote Translog Store operations
+     */
     private final RemoteTranslogTracker.Stats remoteTranslogShardStats;
     private final ShardRouting shardRouting;
 
-    public RemoteStoreStats(RemoteSegmentTransferTracker.Stats remoteSegmentUploadShardStats, RemoteTranslogTracker.Stats remoteTranslogShardStats, ShardRouting shardRouting) {
+    public RemoteStoreStats(
+        RemoteSegmentTransferTracker.Stats remoteSegmentUploadShardStats,
+        RemoteTranslogTracker.Stats remoteTranslogShardStats,
+        ShardRouting shardRouting
+    ) {
         this.remoteSegmentShardStats = remoteSegmentUploadShardStats;
         this.remoteTranslogShardStats = remoteTranslogShardStats;
         this.shardRouting = shardRouting;
