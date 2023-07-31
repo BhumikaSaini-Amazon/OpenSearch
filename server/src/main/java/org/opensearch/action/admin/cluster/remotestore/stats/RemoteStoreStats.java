@@ -269,27 +269,27 @@ public class RemoteStoreStats implements Writeable, ToXContentFragment {
         static final String REMOTE_REFRESH_LATENCY_IN_MILLIS = "remote_refresh_latency_in_millis";
 
         /**
-         *
+         * Timestamp of last successful remote store upload
          */
         static final String LAST_UPLOAD_TIMESTAMP = "last_upload_timestamp";
 
         /**
-         *
+         * Number of total uploads to remote store
          */
         static final String TOTAL_UPLOADS = "total_uploads";
 
         /**
-         *
+         * Total time spent on remote store uplaods
          */
         static final String TOTAL_UPLOAD_TIME_IN_MILLIS = "total_upload_time_in_millis";
 
         /**
-         *
+         * Represents the size of new data to be transferred as part of a remote store upload
          */
         static final String UPLOAD_BYTES = "upload_bytes";
 
         /**
-         *
+         * Time taken by a remote store upload
          */
         static final String UPLOAD_TIME_IN_MILLIS = "upload_time_in_millis";
     }
