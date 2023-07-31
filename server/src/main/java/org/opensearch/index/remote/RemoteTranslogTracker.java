@@ -22,6 +22,9 @@ import java.util.concurrent.atomic.AtomicReference;
  * Stores Remote Translog Store-related stats for a given IndexShard.
  */
 public class RemoteTranslogTracker {
+    /**
+     * The shard that this tracker is associated with
+     */
     public final ShardId shardId;
 
     /**
@@ -267,6 +270,10 @@ public class RemoteTranslogTracker {
         }
     }
 
+    /**
+     * Gets the tracker's state as seen in the stats API
+     * @return Stats object with the tracker's stats
+     */
     public RemoteTranslogTracker.Stats stats() {
         return new RemoteTranslogTracker.Stats(
             shardId,
@@ -284,6 +291,13 @@ public class RemoteTranslogTracker {
         );
     }
 
+    /**
+     * Validates that the sum of successful operations, failed operations, and the number of operations to add (irrespective of failed/successful) does not exceed the number of operations originally started
+     * @param startedCount Number of operations started
+     * @param failedCount Number of operations failed
+     * @param succeededCount Number of operations successful
+     * @param countToAdd Number of operations to add
+     */
     private void checkTotal(long startedCount, long failedCount, long succeededCount, long countToAdd) {
         long delta = startedCount - (failedCount + succeededCount + countToAdd);
         assert delta >= 0 : "Sum of failure count ("
@@ -445,6 +459,11 @@ public class RemoteTranslogTracker {
         }
     }
 
+    /**
+     * Validates if the stats in this tracker and the stats contained in the given stats object are same or not
+     * @param other Stats object to compare this tracker against
+     * @return true if stats are same and false otherwise
+     */
     boolean hasSameStatsAs(RemoteTranslogTracker.Stats other) {
         return this.getShardId().toString().equals(other.shardId.toString())
             && this.getLastUploadTimestamp() == other.lastUploadTimestamp
