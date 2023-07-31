@@ -33,7 +33,7 @@ public class RemoteStoreStatsIT extends RemoteStoreBaseIntegTestCase {
     @Before
     public void setup() {
         setupRepo();
-        timeBeforeIndexing  = RemoteStoreUtils.getCurrentSystemNanoTime() / 1_000_000L;
+        timeBeforeIndexing = RemoteStoreUtils.getCurrentSystemNanoTime() / 1_000_000L;
     }
 
     public void testStatsResponseFromAllNodes() {
