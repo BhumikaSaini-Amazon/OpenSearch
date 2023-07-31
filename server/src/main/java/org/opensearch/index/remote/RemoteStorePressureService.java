@@ -37,12 +37,12 @@ public class RemoteStorePressureService implements IndexEventListener {
     /**
      * Keeps map of remote-backed index shards and their corresponding backpressure tracker.
      */
-    private final Map<ShardId, RemoteRefreshSegmentTracker> trackerMapRemoteSegmentStore = ConcurrentCollections.newConcurrentMap();
+    private static final Map<ShardId, RemoteRefreshSegmentTracker> trackerMapRemoteSegmentStore = ConcurrentCollections.newConcurrentMap();
 
     /**
      * Keeps map of remote-backed index shards and their corresponding backpressure tracker.
      */
-    private final Map<ShardId, RemoteTranslogTracker> trackerMapRemoteTranslogStore = ConcurrentCollections.newConcurrentMap();
+    private static final Map<ShardId, RemoteTranslogTracker> trackerMapRemoteTranslogStore = ConcurrentCollections.newConcurrentMap();
 
     /**
      * Remote refresh segment pressure settings which is used for creation of the backpressure tracker and as well as rejection.
@@ -97,18 +97,16 @@ public class RemoteStorePressureService implements IndexEventListener {
             )
         );
         logger.trace("Created RemoteRefreshSegmentTracker for shardId={}", shardId);
-        if (indexShard.indexSettings().isRemoteTranslogStoreEnabled()) {
-            trackerMapRemoteTranslogStore.put(
+        trackerMapRemoteTranslogStore.put(
+            shardId,
+            new RemoteTranslogTracker(
                 shardId,
-                new RemoteTranslogTracker(
-                    shardId,
-                    pressureSettings.getUploadBytesMovingAverageWindowSize(),
-                    pressureSettings.getUploadBytesPerSecMovingAverageWindowSize(),
-                    pressureSettings.getUploadTimeMovingAverageWindowSize()
-                )
-            );
-            logger.trace("Created RemoteTranslogTracker for shardId={}", shardId);
-        }
+                pressureSettings.getUploadBytesMovingAverageWindowSize(),
+                pressureSettings.getUploadBytesPerSecMovingAverageWindowSize(),
+                pressureSettings.getUploadTimeMovingAverageWindowSize()
+            )
+        );
+        logger.trace("Created RemoteTranslogTracker for shardId={}", shardId);
     }
 
     @Override
