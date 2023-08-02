@@ -20,6 +20,7 @@ import java.io.IOException;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
@@ -636,6 +637,31 @@ public class RemoteRefreshSegmentTracker {
                 && Double.compare(this.uploadBytesPerSecMovingAverage, other.uploadBytesPerSecMovingAverage) == 0
                 && Double.compare(this.uploadTimeMovingAverage, other.uploadTimeMovingAverage) == 0
                 && this.bytesLag == other.bytesLag;
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hash(
+                shardId,
+                localRefreshClockTimeMs,
+                remoteRefreshClockTimeMs,
+                refreshTimeLagMs,
+                localRefreshNumber,
+                remoteRefreshNumber,
+                uploadBytesStarted,
+                uploadBytesFailed,
+                uploadBytesSucceeded,
+                totalUploadsStarted,
+                totalUploadsFailed,
+                totalUploadsSucceeded,
+                rejectionCount,
+                consecutiveFailuresCount,
+                lastSuccessfulRemoteRefreshBytes,
+                uploadBytesMovingAverage,
+                uploadBytesPerSecMovingAverage,
+                uploadTimeMovingAverage,
+                bytesLag
+            );
         }
     }
 
