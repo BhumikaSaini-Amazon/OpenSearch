@@ -93,17 +93,15 @@ public class TranslogTransferManager {
 
     public boolean transferSnapshot(TransferSnapshot transferSnapshot, TranslogTransferListener translogTransferListener)
         throws IOException {
-        // TODO: Should we be incrementing stats if there is nothing to upload?
-        translogTransferListener.beforeUpload(transferSnapshot);
         List<Exception> exceptionList = new ArrayList<>(transferSnapshot.getTranslogTransferMetadata().getCount());
         Set<TransferFileSnapshot> toUpload = RemoteStoreUtils.getUploadBlobsFromSnapshot(transferSnapshot, fileTransferTracker);
         try {
             if (toUpload.isEmpty()) {
                 logger.trace("Nothing to upload for transfer");
-                // TODO: Should we be incrementing stats if there is nothing to upload?
-                translogTransferListener.onUploadComplete(transferSnapshot);
                 return true;
             }
+
+            translogTransferListener.beforeUpload(transferSnapshot);
             final CountDownLatch latch = new CountDownLatch(toUpload.size());
             LatchedActionListener<TransferFileSnapshot> latchedActionListener = new LatchedActionListener<>(
                 ActionListener.wrap(fileTransferTracker::onSuccess, ex -> {

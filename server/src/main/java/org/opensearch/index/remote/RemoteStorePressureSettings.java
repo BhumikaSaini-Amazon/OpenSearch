@@ -64,7 +64,7 @@ public class RemoteStorePressureSettings {
     );
 
     public static final Setting<Integer> UPLOAD_BYTES_MOVING_AVERAGE_WINDOW_SIZE = Setting.intSetting(
-        "remote_store.segment.pressure.upload_bytes_moving_average_window_size",
+        "remote_store.pressure.upload_bytes_moving_average_window_size",
         Defaults.UPLOAD_BYTES_MOVING_AVERAGE_WINDOW_SIZE,
         Defaults.MOVING_AVERAGE_WINDOW_SIZE_MIN_VALUE,
         Setting.Property.Dynamic,
@@ -72,7 +72,7 @@ public class RemoteStorePressureSettings {
     );
 
     public static final Setting<Integer> UPLOAD_BYTES_PER_SEC_MOVING_AVERAGE_WINDOW_SIZE = Setting.intSetting(
-        "remote_store.segment.pressure.upload_bytes_per_sec_moving_average_window_size",
+        "remote_store.pressure.upload_bytes_per_sec_moving_average_window_size",
         Defaults.UPLOAD_BYTES_PER_SEC_MOVING_AVERAGE_WINDOW_SIZE,
         Defaults.MOVING_AVERAGE_WINDOW_SIZE_MIN_VALUE,
         Setting.Property.Dynamic,
@@ -80,7 +80,7 @@ public class RemoteStorePressureSettings {
     );
 
     public static final Setting<Integer> UPLOAD_TIME_MOVING_AVERAGE_WINDOW_SIZE = Setting.intSetting(
-        "remote_store.segment.pressure.upload_time_moving_average_window_size",
+        "remote_store.pressure.upload_time_moving_average_window_size",
         Defaults.UPLOAD_TIME_MOVING_AVERAGE_WINDOW_SIZE,
         Defaults.MOVING_AVERAGE_WINDOW_SIZE_MIN_VALUE,
         Setting.Property.Dynamic,

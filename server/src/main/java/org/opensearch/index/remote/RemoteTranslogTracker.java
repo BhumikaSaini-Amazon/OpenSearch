@@ -15,6 +15,7 @@ import org.opensearch.common.util.MovingAverage;
 import org.opensearch.core.index.shard.ShardId;
 
 import java.io.IOException;
+import java.util.Objects;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -456,6 +457,24 @@ public class RemoteTranslogTracker {
                 && Double.compare(this.uploadBytesMovingAverage, other.uploadBytesMovingAverage) == 0
                 && Double.compare(this.uploadBytesPerSecMovingAverage, other.uploadBytesPerSecMovingAverage) == 0
                 && Double.compare(this.uploadTimeMovingAverage, other.uploadTimeMovingAverage) == 0;
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hash(
+                shardId.toString(),
+                lastUploadTimestamp,
+                totalUploadsStarted,
+                totalUploadsFailed,
+                totalUploadsSucceeded,
+                uploadBytesStarted,
+                uploadBytesFailed,
+                uploadBytesSucceeded,
+                totalUploadTimeInMillis,
+                uploadBytesMovingAverage,
+                uploadBytesPerSecMovingAverage,
+                uploadTimeMovingAverage
+            );
         }
     }
 
