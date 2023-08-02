@@ -286,30 +286,34 @@ public class RemoteStoreStatsTestHelper {
         assertEquals(
             pressureTrackerTranslogStats.totalUploadsStarted,
             Long.parseLong(
-                ((Map<?, ?>) tlogUploadStatsObj.get(RemoteStoreStats.UploadStatsFields.TOTAL_UPLOADS)).get(RemoteStoreStats.SubFields.STARTED)
-                    .toString()
+                ((Map<?, ?>) tlogUploadStatsObj.get(RemoteStoreStats.UploadStatsFields.TOTAL_UPLOADS)).get(
+                    RemoteStoreStats.SubFields.STARTED
+                ).toString()
             )
         );
         assertEquals(
             pressureTrackerTranslogStats.totalUploadsSucceeded,
             Long.parseLong(
-                ((Map<?, ?>) tlogUploadStatsObj.get(RemoteStoreStats.UploadStatsFields.TOTAL_UPLOADS)).get(RemoteStoreStats.SubFields.SUCCEEDED)
-                    .toString()
+                ((Map<?, ?>) tlogUploadStatsObj.get(RemoteStoreStats.UploadStatsFields.TOTAL_UPLOADS)).get(
+                    RemoteStoreStats.SubFields.SUCCEEDED
+                ).toString()
             )
         );
         assertEquals(
             pressureTrackerTranslogStats.totalUploadsFailed,
             Long.parseLong(
-                ((Map<?, ?>) tlogUploadStatsObj.get(RemoteStoreStats.UploadStatsFields.TOTAL_UPLOADS)).get(RemoteStoreStats.SubFields.FAILED)
-                    .toString()
+                ((Map<?, ?>) tlogUploadStatsObj.get(RemoteStoreStats.UploadStatsFields.TOTAL_UPLOADS)).get(
+                    RemoteStoreStats.SubFields.FAILED
+                ).toString()
             )
         );
 
         assertEquals(
             pressureTrackerTranslogStats.uploadBytesStarted,
             Long.parseLong(
-                ((Map<?, ?>) tlogUploadStatsObj.get(RemoteStoreStats.UploadStatsFields.TOTAL_UPLOADS_IN_BYTES)).get(RemoteStoreStats.SubFields.STARTED)
-                    .toString()
+                ((Map<?, ?>) tlogUploadStatsObj.get(RemoteStoreStats.UploadStatsFields.TOTAL_UPLOADS_IN_BYTES)).get(
+                    RemoteStoreStats.SubFields.STARTED
+                ).toString()
             )
         );
         assertEquals(
@@ -323,8 +327,9 @@ public class RemoteStoreStatsTestHelper {
         assertEquals(
             pressureTrackerTranslogStats.uploadBytesFailed,
             Long.parseLong(
-                ((Map<?, ?>) tlogUploadStatsObj.get(RemoteStoreStats.UploadStatsFields.TOTAL_UPLOADS_IN_BYTES)).get(RemoteStoreStats.SubFields.FAILED)
-                    .toString()
+                ((Map<?, ?>) tlogUploadStatsObj.get(RemoteStoreStats.UploadStatsFields.TOTAL_UPLOADS_IN_BYTES)).get(
+                    RemoteStoreStats.SubFields.FAILED
+                ).toString()
             )
         );
 
@@ -345,7 +350,9 @@ public class RemoteStoreStatsTestHelper {
         );
         assertEquals(
             pressureTrackerTranslogStats.uploadTimeMovingAverage,
-            ((Map<?, ?>) tlogUploadStatsObj.get(RemoteStoreStats.UploadStatsFields.UPLOAD_TIME_IN_MILLIS)).get(RemoteStoreStats.SubFields.MOVING_AVG)
+            ((Map<?, ?>) tlogUploadStatsObj.get(RemoteStoreStats.UploadStatsFields.UPLOAD_TIME_IN_MILLIS)).get(
+                RemoteStoreStats.SubFields.MOVING_AVG
+            )
         );
     }
 }

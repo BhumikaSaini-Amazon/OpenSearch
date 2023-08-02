@@ -361,9 +361,8 @@ public class RemoteStoreRefreshListenerTests extends IndexShardTestCase {
         assertEquals(0, tracker.getTotalUploadsFailed());
     }
 
-    private Tuple<RemoteStoreRefreshListener, RemoteStorePressureService> mockIndexShardWithRetryAndScheduleRefresh(
-        int succeedOnAttempt
-    ) throws IOException {
+    private Tuple<RemoteStoreRefreshListener, RemoteStorePressureService> mockIndexShardWithRetryAndScheduleRefresh(int succeedOnAttempt)
+        throws IOException {
         return mockIndexShardWithRetryAndScheduleRefresh(succeedOnAttempt, null, null);
     }
 

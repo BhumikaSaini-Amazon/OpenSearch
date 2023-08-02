@@ -75,14 +75,14 @@ public class RemoteStoreStatsIT extends RemoteStoreBaseIntegTestCase {
                 .collect(Collectors.toList());
             assertEquals(1, matches.size());
             RemoteSegmentTransferTracker.Stats segmentStats = matches.get(0).getSegmentStats();
-            matches = Arrays.stream(response.getShards())
+            matches = Arrays.stream(response.getRemoteStoreStats())
                 .filter(stat -> indexShardId.equals(stat.getTranslogStats().shardId.toString()))
                 .collect(Collectors.toList());
             assertEquals(1, matches.size());
             RemoteTranslogTracker.Stats translogStats = matches.get(0).getTranslogStats();
             validateSegmentUploadStats(segmentStats);
             validateTranslogUploadStats(translogStats);
-            assertEquals(0, stats.directoryFileTransferTrackerStats.transferredBytesStarted);
+            assertEquals(0, segmentStats.directoryFileTransferTrackerStats.transferredBytesStarted);
         }
 
         // Step 3 - Enable replicas on the existing indices and ensure that download
@@ -132,11 +132,11 @@ public class RemoteStoreStatsIT extends RemoteStoreBaseIntegTestCase {
         RemoteStoreStatsResponse response = remoteStoreStatsRequestBuilder.get();
         assertEquals(3, response.getSuccessfulShards());
         assertTrue(response.getRemoteStoreStats() != null && response.getRemoteStoreStats().length == 3);
-        RemoteRefreshSegmentTracker.Stats segmentStats = response.getRemoteStoreStats()[0].getSegmentStats();
+        RemoteSegmentTransferTracker.Stats segmentStats = response.getRemoteStoreStats()[0].getSegmentStats();
         RemoteTranslogTracker.Stats translogStats = response.getRemoteStoreStats()[0].getTranslogStats();
         validateSegmentUploadStats(segmentStats);
         validateTranslogUploadStats(translogStats);
-        assertEquals(0, stats.directoryFileTransferTrackerStats.transferredBytesStarted);
+        assertEquals(0, segmentStats.directoryFileTransferTrackerStats.transferredBytesStarted);
 
         // Step 3 - Enable replicas on the existing indices and ensure that download
         // stats are being populated as well
@@ -147,7 +147,7 @@ public class RemoteStoreStatsIT extends RemoteStoreBaseIntegTestCase {
         for (RemoteStoreStats stat : response.getRemoteStoreStats()) {
             ShardRouting routing = stat.getShardRouting();
             validateShardRouting(routing);
-            stats = stat.getSegmentStats();
+            RemoteSegmentTransferTracker.Stats stats = stat.getSegmentStats();
             if (routing.primary()) {
                 validateSegmentUploadStats(stats);
                 assertEquals(0, stats.directoryFileTransferTrackerStats.transferredBytesStarted);
@@ -184,7 +184,7 @@ public class RemoteStoreStatsIT extends RemoteStoreBaseIntegTestCase {
             RemoteTranslogTracker.Stats translogStats = response.getRemoteStoreStats()[0].getTranslogStats();
             validateSegmentUploadStats(segmentStats);
             validateTranslogUploadStats(translogStats);
-            assertEquals(0, stats.directoryFileTransferTrackerStats.transferredBytesStarted);
+            assertEquals(0, segmentStats.directoryFileTransferTrackerStats.transferredBytesStarted);
         }
         changeReplicaCountAndEnsureGreen(1);
         for (String node : nodes) {
@@ -571,7 +571,7 @@ public class RemoteStoreStatsIT extends RemoteStoreBaseIntegTestCase {
         ensureGreen(INDEX_NAME);
     }
 
-    private void validateSegmentUploadStats(RemoteRefreshSegmentTracker.Stats segmentStats) {
+    private void validateSegmentUploadStats(RemoteSegmentTransferTracker.Stats segmentStats) {
         assertEquals(0, segmentStats.refreshTimeLagMs);
         assertEquals(segmentStats.localRefreshNumber, segmentStats.remoteRefreshNumber);
         assertTrue(segmentStats.uploadBytesStarted > 0);

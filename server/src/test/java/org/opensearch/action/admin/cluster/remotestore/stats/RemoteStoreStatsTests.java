@@ -89,7 +89,11 @@ public class RemoteStoreStatsTests extends OpenSearchTestCase {
     public void testSerializationForPrimaryShard() throws Exception {
         RemoteSegmentTransferTracker.Stats pressureTrackerSegmentStats = createStatsForNewPrimary(shardId);
         RemoteTranslogTracker.Stats pressureTrackerTranslogStats = createPressureTrackerTranslogStats(shardId);
-        RemoteStoreStats stats = new RemoteStoreStats(pressureTrackerSegmentStats, pressureTrackerTranslogStats, createShardRouting(shardId, true));
+        RemoteStoreStats stats = new RemoteStoreStats(
+            pressureTrackerSegmentStats,
+            pressureTrackerTranslogStats,
+            createShardRouting(shardId, true)
+        );
         try (BytesStreamOutput out = new BytesStreamOutput()) {
             stats.writeTo(out);
             try (StreamInput in = out.bytes().streamInput()) {

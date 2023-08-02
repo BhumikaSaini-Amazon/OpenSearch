@@ -169,7 +169,10 @@ public class RemoteStorePressureService implements IndexEventListener {
     }
 
     void updateUploadBytesPerSecMovingAverageWindowSize(int updatedSize) {
-        updateMovingAverageWindowSizeSegmentStats(RemoteSegmentTransferTracker::updateUploadBytesPerSecMovingAverageWindowSize, updatedSize);
+        updateMovingAverageWindowSizeSegmentStats(
+            RemoteSegmentTransferTracker::updateUploadBytesPerSecMovingAverageWindowSize,
+            updatedSize
+        );
         updateMovingAverageWindowSizeTranslogStats(RemoteTranslogTracker::updateUploadBytesPerSecMovingAverageWindowSize, updatedSize);
     }
 
