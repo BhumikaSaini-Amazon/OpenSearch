@@ -61,6 +61,10 @@ public class RemoteStorePressureService implements IndexEventListener {
         );
     }
 
+    public RemoteStorePressureSettings getPressureSettings() {
+        return pressureSettings;
+    }
+
     /**
      * Get {@code RemoteSegmentTransferTracker} only if the underlying Index has remote segments integration enabled.
      *

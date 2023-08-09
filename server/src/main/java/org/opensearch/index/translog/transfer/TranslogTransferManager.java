@@ -181,6 +181,7 @@ public class TranslogTransferManager {
         }
         try (InputStream inputStream = transferService.downloadBlob(remoteDataTransferPath.add(primaryTerm), fileName)) {
             Files.copy(inputStream, filePath);
+            // TODO: inputStream.available()
         }
         // Mark in FileTransferTracker so that the same files are not uploaded at the time of translog sync
         fileTransferTracker.add(fileName, true);

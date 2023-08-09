@@ -135,7 +135,8 @@ public class LocalTranslog extends Translog {
                 sizeInBytes(),
                 totalOperationsByMinGen(uncommittedGen),
                 sizeInBytesByMinGen(uncommittedGen),
-                earliestLastModifiedAge()
+                earliestLastModifiedAge(),
+                null
             );
         }
     }

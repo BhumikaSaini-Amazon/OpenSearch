@@ -126,7 +126,6 @@ public class CommonStats implements Writeable, ToXContentFragment {
 
     public CommonStats(CommonStatsFlags flags) {
         CommonStatsFlags.Flag[] setFlags = flags.getFlags();
-
         for (CommonStatsFlags.Flag flag : setFlags) {
             switch (flag) {
                 case Docs:
