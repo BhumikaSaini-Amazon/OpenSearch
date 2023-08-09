@@ -25,6 +25,7 @@ import org.opensearch.common.lucene.store.ByteArrayIndexInput;
 import org.opensearch.core.common.bytes.BytesReference;
 import org.opensearch.core.index.shard.ShardId;
 import org.opensearch.index.remote.RemoteStoreUtils;
+import org.opensearch.index.remote.RemoteTranslogTracker;
 import org.opensearch.index.translog.Translog;
 import org.opensearch.index.translog.transfer.listener.TranslogTransferListener;
 import org.opensearch.threadpool.ThreadPool;
@@ -59,6 +60,7 @@ public class TranslogTransferManager {
     private final BlobPath remoteMetadataTransferPath;
     private final BlobPath remoteBaseTransferPath;
     private final FileTransferTracker fileTransferTracker;
+    private final SetOnce<RemoteTranslogTracker> remoteTranslogTrackerSetOnce = new SetOnce<>();
 
     private static final long TRANSFER_TIMEOUT_IN_MILLIS = 30000;
 
@@ -85,6 +87,14 @@ public class TranslogTransferManager {
         this.remoteMetadataTransferPath = remoteBaseTransferPath.add(METADATA_DIR);
         this.fileTransferTracker = fileTransferTracker;
         this.logger = Loggers.getLogger(getClass(), shardId);
+    }
+
+    public void setRemoteTranslogTracker(RemoteTranslogTracker remoteTranslogTracker) {
+        remoteTranslogTrackerSetOnce.trySet(remoteTranslogTracker);
+    }
+
+    public RemoteTranslogTracker getRemoteTranslogTracker() {
+        return remoteTranslogTrackerSetOnce.get();
     }
 
     public ShardId getShardId() {
@@ -181,7 +191,7 @@ public class TranslogTransferManager {
         }
         try (InputStream inputStream = transferService.downloadBlob(remoteDataTransferPath.add(primaryTerm), fileName)) {
             Files.copy(inputStream, filePath);
-            // TODO: inputStream.available()
+            remoteTranslogTrackerSetOnce.get().addDownloadBytesSucceeded(inputStream.available());
         }
         // Mark in FileTransferTracker so that the same files are not uploaded at the time of translog sync
         fileTransferTracker.add(fileName, true);
@@ -198,6 +208,7 @@ public class TranslogTransferManager {
                 try (InputStream inputStream = transferService.downloadBlob(remoteMetadataTransferPath, filename)) {
                     IndexInput indexInput = new ByteArrayIndexInput("metadata file", inputStream.readAllBytes());
                     metadataSetOnce.set(metadataStreamWrapper.readStream(indexInput));
+                    remoteTranslogTrackerSetOnce.get().addDownloadBytesSucceeded(indexInput.length());
                 } catch (IOException e) {
                     logger.error(() -> new ParameterizedMessage("Exception while reading metadata file: {}", filename), e);
                     exceptionSetOnce.set(e);

@@ -108,6 +108,10 @@ public class RemoteStorePressureService implements IndexEventListener {
                 shardId,
                 pressureSettings.getUploadBytesMovingAverageWindowSize(),
                 pressureSettings.getUploadBytesPerSecMovingAverageWindowSize(),
+                pressureSettings.getUploadTimeMovingAverageWindowSize(),
+                // TODO
+                pressureSettings.getUploadBytesMovingAverageWindowSize(),
+                pressureSettings.getUploadBytesPerSecMovingAverageWindowSize(),
                 pressureSettings.getUploadTimeMovingAverageWindowSize()
             )
         );

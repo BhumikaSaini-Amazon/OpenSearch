@@ -70,9 +70,8 @@ public class TranslogStats implements Writeable, ToXContentFragment {
         uncommittedSizeInBytes = in.readVLong();
         earliestLastModifiedAge = in.readVLong();
         // TODO
-//        Version v = in.readVersion();
-//        remoteTranslogStats = in.readVersion().onOrAfter(Version.CURRENT) ? new RemoteTranslogStats(in) : null;
-        remoteTranslogStats = new RemoteTranslogStats(in);
+        // remoteTranslogStats = in.readVersion().onOrAfter(Version.V_3_0_0) ? in.readOptionalWriteable(RemoteTranslogStats::new) : null;
+        remoteTranslogStats = in.readOptionalWriteable(RemoteTranslogStats::new);
     }
 
     public TranslogStats(
@@ -124,6 +123,8 @@ public class TranslogStats implements Writeable, ToXContentFragment {
 
         if (this.remoteTranslogStats != null) {
             this.remoteTranslogStats.add(translogStats.remoteTranslogStats);
+        } else if (translogStats.remoteTranslogStats != null) {
+            this.remoteTranslogStats = new RemoteTranslogStats(translogStats.remoteTranslogStats);
         }
     }
 
@@ -154,7 +155,7 @@ public class TranslogStats implements Writeable, ToXContentFragment {
         builder.startObject(TRANSLOG);
         addLocalTranslogStatsXContent(builder);
         if (remoteTranslogStats != null) {
-            builder = remoteTranslogStats.toXContent(builder);
+            builder = remoteTranslogStats.toXContent(builder, params);
         }
 
         builder.endObject();
@@ -175,9 +176,9 @@ public class TranslogStats implements Writeable, ToXContentFragment {
         out.writeVLong(uncommittedSizeInBytes);
         out.writeVLong(earliestLastModifiedAge);
         // TODO
-        if (out.getVersion().onOrAfter(Version.CURRENT) && this.remoteTranslogStats != null) {
-            remoteTranslogStats.writeTo(out);
-        }
+//        if (out.getVersion().onOrAfter(Version.V_3_0_0)) {
+        out.writeOptionalWriteable(remoteTranslogStats);
+//        }
     }
 
     private void addLocalTranslogStatsXContent(XContentBuilder builder) throws IOException {

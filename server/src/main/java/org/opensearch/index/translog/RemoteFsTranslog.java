@@ -94,6 +94,7 @@ public class RemoteFsTranslog extends Translog {
         fileTransferTracker = new FileTransferTracker(shardId);
         this.translogTransferManager = buildTranslogTransferManager(blobStoreRepository, threadPool, shardId, fileTransferTracker);
         this.remoteTranslogTracker = remoteTranslogTracker;
+        this.translogTransferManager.setRemoteTranslogTracker(this.remoteTranslogTracker);
         try {
             download(translogTransferManager, location, logger);
             Checkpoint checkpoint = readCheckpoint(location);
@@ -145,6 +146,13 @@ public class RemoteFsTranslog extends Translog {
             shardId,
             fileTransferTracker
         );
+
+        // Dummy stats tracker to ensure the flow doesn't break on first download of tlog files.
+        // This first download is to ensure the segment file corruption checks pass.
+        // These tlog files will get downloaded again for the actual tlog replay.
+        translogTransferManager.setRemoteTranslogTracker(
+            new RemoteTranslogTracker(shardId, 1000, 1000, 1000, 1000, 1000, 1000)
+        );
         RemoteFsTranslog.download(translogTransferManager, location, logger);
     }
 
@@ -152,24 +160,44 @@ public class RemoteFsTranslog extends Translog {
         logger.trace("Downloading translog files from remote");
         TranslogTransferMetadata translogMetadata = translogTransferManager.readMetadata();
         if (translogMetadata != null) {
-            if (Files.notExists(location)) {
-                Files.createDirectories(location);
+            try {
+                RemoteTranslogTracker statsTracker = translogTransferManager.getRemoteTranslogTracker();
+                long bytesBefore = statsTracker.getDownloadBytesSucceeded();
+                long downloadStartTime = RemoteStoreUtils.getCurrentSystemNanoTime();
+                statsTracker.incrementDownloadsStarted();
+                if (Files.notExists(location)) {
+                    Files.createDirectories(location);
+                }
+                // Delete translog files on local before downloading from remote
+                for (Path file : FileSystemUtils.files(location)) {
+                    Files.delete(file);
+                }
+                Map<String, String> generationToPrimaryTermMapper = translogMetadata.getGenerationToPrimaryTermMapper();
+                for (long i = translogMetadata.getGeneration(); i >= translogMetadata.getMinTranslogGeneration(); i--) {
+                    String generation = Long.toString(i);
+                    translogTransferManager.downloadTranslog(generationToPrimaryTermMapper.get(generation), generation, location);
+                }
+
+                long downloadEndTime = RemoteStoreUtils.getCurrentSystemNanoTime();
+                long durationInMillis = (downloadEndTime - downloadStartTime) / 1_000_000L;
+                long bytesDownloaded = statsTracker.getDownloadBytesSucceeded() - bytesBefore;
+                statsTracker.setLastDownloadTimestamp(downloadEndTime / 1_000_000L);
+                statsTracker.addDownloadTimeInMillis(durationInMillis);
+                statsTracker.incrementDownloadsSucceeded();
+                statsTracker.updateDownloadBytesMovingAverage(bytesDownloaded);
+                statsTracker.updateDownloadBytesPerSecMovingAverage(bytesDownloaded * 1_000L / durationInMillis);
+                statsTracker.updateDownloadTimeMovingAverage(durationInMillis);
+
+                // We copy the latest generation .ckp file to translog.ckp so that flows that depend on
+                // existence of translog.ckp file work in the same way
+                Files.copy(
+                    location.resolve(Translog.getCommitCheckpointFileName(translogMetadata.getGeneration())),
+                    location.resolve(Translog.CHECKPOINT_FILE_NAME)
+                );
+            } catch (Exception exception) {
+                translogTransferManager.getRemoteTranslogTracker().incrementDownloadsFailed();
+                throw exception;
             }
-            // Delete translog files on local before downloading from remote
-            for (Path file : FileSystemUtils.files(location)) {
-                Files.delete(file);
-            }
-            Map<String, String> generationToPrimaryTermMapper = translogMetadata.getGenerationToPrimaryTermMapper();
-            for (long i = translogMetadata.getGeneration(); i >= translogMetadata.getMinTranslogGeneration(); i--) {
-                String generation = Long.toString(i);
-                translogTransferManager.downloadTranslog(generationToPrimaryTermMapper.get(generation), generation, location);
-            }
-            // We copy the latest generation .ckp file to translog.ckp so that flows that depend on
-            // existence of translog.ckp file work in the same way
-            Files.copy(
-                location.resolve(Translog.getCommitCheckpointFileName(translogMetadata.getGeneration())),
-                location.resolve(Translog.CHECKPOINT_FILE_NAME)
-            );
         }
         logger.trace("Downloaded translog files from remote");
     }
@@ -321,25 +349,37 @@ public class RemoteFsTranslog extends Translog {
         // acquire lock to make the two numbers roughly consistent (no file change half way)
         try (ReleasableLock lock = readLock.acquire()) {
             long uncommittedGen = getMinGenerationForSeqNo(deletionPolicy.getLocalCheckpointOfSafeCommit() + 1).translogFileGeneration;
+            RemoteTranslogStats remoteTranslogStats = new RemoteTranslogStats(
+                remoteTranslogTracker.getLastUploadTimestamp(),
+                remoteTranslogTracker.getTotalUploadsStarted(),
+                remoteTranslogTracker.getTotalUploadsSucceeded(),
+                remoteTranslogTracker.getTotalUploadsFailed(),
+                remoteTranslogTracker.getUploadBytesStarted(),
+                remoteTranslogTracker.getUploadBytesSucceeded(),
+                remoteTranslogTracker.getUploadBytesFailed(),
+                remoteTranslogTracker.getTotalUploadTimeInMillis(),
+                remoteTranslogTracker.getUploadBytesMovingAverage(),
+                remoteTranslogTracker.getUploadBytesPerSecMovingAverage(),
+                remoteTranslogTracker.getUploadTimeMovingAverage(),
+                remoteTranslogTracker.getLastDownloadTimestamp(),
+                remoteTranslogTracker.getTotalDownloadsStarted(),
+                remoteTranslogTracker.getTotalDownloadsSucceeded(),
+                remoteTranslogTracker.getTotalDownloadsFailed(),
+                remoteTranslogTracker.getDownloadBytesStarted(),
+                remoteTranslogTracker.getDownloadBytesSucceeded(),
+                remoteTranslogTracker.getDownloadBytesFailed(),
+                remoteTranslogTracker.getTotalDownloadTimeInMillis(),
+                remoteTranslogTracker.getDownloadBytesMovingAverage(),
+                remoteTranslogTracker.getDownloadBytesPerSecMovingAverage(),
+                remoteTranslogTracker.getDownloadTimeMovingAverage()
+            );
             return new TranslogStats(
                 totalOperations(),
                 sizeInBytes(),
                 totalOperationsByMinGen(uncommittedGen),
                 sizeInBytesByMinGen(uncommittedGen),
                 earliestLastModifiedAge(),
-                new RemoteTranslogStats(
-                    remoteTranslogTracker.getLastUploadTimestamp(),
-                    remoteTranslogTracker.getTotalUploadsStarted(),
-                    remoteTranslogTracker.getTotalUploadsSucceeded(),
-                    remoteTranslogTracker.getTotalUploadsFailed(),
-                    remoteTranslogTracker.getUploadBytesStarted(),
-                    remoteTranslogTracker.getUploadBytesSucceeded(),
-                    remoteTranslogTracker.getUploadBytesFailed(),
-                    remoteTranslogTracker.getTotalUploadTimeInMillis(),
-                    remoteTranslogTracker.getUploadBytesMovingAverage(),
-                    remoteTranslogTracker.getUploadBytesPerSecMovingAverage(),
-                    remoteTranslogTracker.getUploadTimeMovingAverage()
-                )
+                remoteTranslogStats
             );
         }
     }

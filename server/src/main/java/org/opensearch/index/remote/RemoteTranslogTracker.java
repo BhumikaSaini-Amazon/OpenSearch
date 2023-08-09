@@ -101,13 +101,90 @@ public class RemoteTranslogTracker {
      */
     private final Object uploadTimeMsMutex;
 
+    /**
+     * Epoch timestamp of the last successful Remote Translog Store upload.
+     */
+    private final AtomicLong lastDownloadTimestamp;
+
+    /**
+     * Total number of Remote Translog Store uploads that have been started.
+     */
+    private final AtomicLong totalDownloadsStarted;
+
+    /**
+     * Total number of Remote Translog Store uploads that have failed.
+     */
+    private final AtomicLong totalDownloadsFailed;
+
+    /**
+     * Total number of Remote Translog Store that have been successful.
+     */
+    private final AtomicLong totalDownloadsSucceeded;
+
+    /**
+     * Total number of byte uploads to Remote Translog Store that have been started.
+     */
+    private final AtomicLong downloadBytesStarted;
+
+    /**
+     * Total number of byte uploads to Remote Translog Store that have failed.
+     */
+    private final AtomicLong downloadBytesFailed;
+
+    /**
+     * Total number of byte uploads to Remote Translog Store that have been successful.
+     */
+    private final AtomicLong downloadBytesSucceeded;
+
+    /**
+     * Total time spent on Remote Translog Store uploads.
+     */
+    private final AtomicLong totalDownloadTimeInMillis;
+
+    /**
+     * Provides moving average over the last N total size in bytes of translog files uploaded as part of Remote Translog Store upload.
+     * N is window size. Wrapped with {@code AtomicReference} for dynamic changes in window size.
+     */
+    private final AtomicReference<MovingAverage> downloadBytesMovingAverageReference;
+
+    /**
+     * This lock object is used for making sure we do not miss any data.
+     */
+    private final Object downloadBytesMutex;
+
+    /**
+     * Provides moving average over the last N upload speed (in bytes/s) of translog files uploaded as part of Remote Translog Store upload.
+     * N is window size. Wrapped with {@code AtomicReference} for dynamic changes in window size.
+     */
+    private final AtomicReference<MovingAverage> downloadBytesPerSecMovingAverageReference;
+
+    /**
+     * This lock object is used for making sure we do not miss any data.
+     */
+    private final Object downloadBytesPerSecMutex;
+
+    /**
+     * Provides moving average over the last N overall upload time (in nanos) as part of Remote Translog Store upload. N is window size.
+     * Wrapped with {@code AtomicReference} for dynamic changes in window size.
+     */
+    private final AtomicReference<MovingAverage> downloadTimeMsMovingAverageReference;
+
+    /**
+     * This lock object is used for making sure we do not miss any data.
+     */
+    private final Object downloadTimeMsMutex;
+
     public RemoteTranslogTracker(
         ShardId shardId,
         int uploadBytesMovingAverageWindowSize,
         int uploadBytesPerSecMovingAverageWindowSize,
-        int uploadTimeMsMovingAverageWindowSize
+        int uploadTimeMsMovingAverageWindowSize,
+        int downloadBytesMovingAverageWindowSize,
+        int downloadBytesPerSecMovingAverageWindowSize,
+        int downloadTimeMsMovingAverageWindowSize
     ) {
         this.shardId = shardId;
+
         this.lastUploadTimestamp = new AtomicLong(System.currentTimeMillis());
         this.totalUploadsStarted = new AtomicLong(0);
         this.totalUploadsFailed = new AtomicLong(0);
@@ -122,6 +199,21 @@ public class RemoteTranslogTracker {
         uploadBytesPerSecMovingAverageReference = new AtomicReference<>(new MovingAverage(uploadBytesPerSecMovingAverageWindowSize));
         uploadTimeMsMutex = new Object();
         uploadTimeMsMovingAverageReference = new AtomicReference<>(new MovingAverage(uploadTimeMsMovingAverageWindowSize));
+
+        this.lastDownloadTimestamp = new AtomicLong(System.currentTimeMillis());
+        this.totalDownloadsStarted = new AtomicLong(0);
+        this.totalDownloadsFailed = new AtomicLong(0);
+        this.totalDownloadsSucceeded = new AtomicLong(0);
+        this.downloadBytesStarted = new AtomicLong(0);
+        this.downloadBytesFailed = new AtomicLong(0);
+        this.downloadBytesSucceeded = new AtomicLong(0);
+        this.totalDownloadTimeInMillis = new AtomicLong(0);
+        downloadBytesMutex = new Object();
+        downloadBytesMovingAverageReference = new AtomicReference<>(new MovingAverage(downloadBytesMovingAverageWindowSize));
+        downloadBytesPerSecMutex = new Object();
+        downloadBytesPerSecMovingAverageReference = new AtomicReference<>(new MovingAverage(downloadBytesPerSecMovingAverageWindowSize));
+        downloadTimeMsMutex = new Object();
+        downloadTimeMsMovingAverageReference = new AtomicReference<>(new MovingAverage(downloadTimeMsMovingAverageWindowSize));
     }
 
     public long getTotalUploadsStarted() {
@@ -271,6 +363,149 @@ public class RemoteTranslogTracker {
         }
     }
 
+    public long getTotalDownloadsStarted() {
+        return totalDownloadsStarted.get();
+    }
+
+    public long getTotalDownloadsFailed() {
+        return totalDownloadsFailed.get();
+    }
+
+    public long getTotalDownloadsSucceeded() {
+        return totalDownloadsSucceeded.get();
+    }
+
+    public long getDownloadBytesStarted() {
+        return downloadBytesStarted.get();
+    }
+
+    public long getDownloadBytesFailed() {
+        return downloadBytesFailed.get();
+    }
+
+    public long getDownloadBytesSucceeded() {
+        return downloadBytesSucceeded.get();
+    }
+
+    public long getTotalDownloadTimeInMillis() {
+        return totalDownloadTimeInMillis.get();
+    }
+
+    public void incrementDownloadsStarted() {
+        totalDownloadsStarted.incrementAndGet();
+    }
+
+    public void incrementDownloadsFailed() {
+        checkTotal(totalDownloadsStarted.get(), totalDownloadsFailed.get(), totalDownloadsSucceeded.get(), 1);
+        totalDownloadsFailed.incrementAndGet();
+    }
+
+    public void incrementDownloadsSucceeded() {
+        checkTotal(totalDownloadsStarted.get(), totalDownloadsFailed.get(), totalDownloadsSucceeded.get(), 1);
+        totalDownloadsSucceeded.incrementAndGet();
+    }
+
+    public void addDownloadBytesStarted(long count) {
+        downloadBytesStarted.addAndGet(count);
+    }
+
+    public void addDownloadBytesFailed(long count) {
+        checkTotal(downloadBytesStarted.get(), downloadBytesFailed.get(), downloadBytesSucceeded.get(), count);
+        downloadBytesFailed.addAndGet(count);
+    }
+
+    public void addDownloadBytesSucceeded(long count) {
+        checkTotal(downloadBytesStarted.get(), downloadBytesFailed.get(), downloadBytesSucceeded.get(), count);
+        downloadBytesSucceeded.addAndGet(count);
+    }
+
+    public void addDownloadTimeInMillis(long duration) {
+        totalDownloadTimeInMillis.addAndGet(duration);
+    }
+
+    public long getLastDownloadTimestamp() {
+        return lastDownloadTimestamp.get();
+    }
+
+    public void setLastDownloadTimestamp(long lastDownloadTimestamp) {
+        this.lastDownloadTimestamp.set(lastDownloadTimestamp);
+    }
+
+    boolean isDownloadBytesMovingAverageReady() {
+        return downloadBytesMovingAverageReference.get().isReady();
+    }
+
+    public double getDownloadBytesMovingAverage() {
+        return downloadBytesMovingAverageReference.get().getAverage();
+    }
+
+    public void updateDownloadBytesMovingAverage(long count) {
+        synchronized (downloadBytesMutex) {
+            this.downloadBytesMovingAverageReference.get().record(count);
+        }
+    }
+
+    boolean isDownloadBytesPerSecMovingAverageReady() {
+        return downloadBytesPerSecMovingAverageReference.get().isReady();
+    }
+
+    public double getDownloadBytesPerSecMovingAverage() {
+        return downloadBytesPerSecMovingAverageReference.get().getAverage();
+    }
+
+    public void updateDownloadBytesPerSecMovingAverage(long speed) {
+        synchronized (downloadBytesPerSecMutex) {
+            this.downloadBytesPerSecMovingAverageReference.get().record(speed);
+        }
+    }
+
+    boolean isDownloadTimeMovingAverageReady() {
+        return downloadTimeMsMovingAverageReference.get().isReady();
+    }
+
+    public double getDownloadTimeMovingAverage() {
+        return downloadTimeMsMovingAverageReference.get().getAverage();
+    }
+
+    public void updateDownloadTimeMovingAverage(long duration) {
+        synchronized (downloadTimeMsMutex) {
+            this.downloadTimeMsMovingAverageReference.get().record(duration);
+        }
+    }
+
+    /**
+     * Updates the window size for data collection of upload bytes. This also resets any data collected so far.
+     *
+     * @param updatedSize the updated size
+     */
+    void updateDownloadBytesMovingAverageWindowSize(int updatedSize) {
+        synchronized (downloadBytesMutex) {
+            this.downloadBytesMovingAverageReference.set(this.downloadBytesMovingAverageReference.get().copyWithSize(updatedSize));
+        }
+    }
+
+    /**
+     * Updates the window size for data collection of upload bytes per second. This also resets any data collected so far.
+     *
+     * @param updatedSize the updated size
+     */
+    void updateDownloadBytesPerSecMovingAverageWindowSize(int updatedSize) {
+        synchronized (downloadBytesPerSecMutex) {
+            this.downloadBytesPerSecMovingAverageReference.set(this.downloadBytesPerSecMovingAverageReference.get().copyWithSize(updatedSize));
+        }
+    }
+
+    /**
+     * Updates the window size for data collection of upload time (ms). This also resets any data collected so far.
+     *
+     * @param updatedSize the updated size
+     */
+    void updateDownloadTimeMsMovingAverageWindowSize(int updatedSize) {
+        synchronized (downloadTimeMsMutex) {
+            this.downloadTimeMsMovingAverageReference.set(this.downloadTimeMsMovingAverageReference.get().copyWithSize(updatedSize));
+        }
+    }
+
     /**
      * Gets the tracker's state as seen in the stats API
      * @return Stats object with the tracker's stats
@@ -288,7 +523,18 @@ public class RemoteTranslogTracker {
             totalUploadTimeInMillis.get(),
             uploadBytesMovingAverageReference.get().getAverage(),
             uploadBytesPerSecMovingAverageReference.get().getAverage(),
-            uploadTimeMsMovingAverageReference.get().getAverage()
+            uploadTimeMsMovingAverageReference.get().getAverage(),
+            lastDownloadTimestamp.get(),
+            totalDownloadsStarted.get(),
+            totalDownloadsSucceeded.get(),
+            totalDownloadsFailed.get(),
+            downloadBytesStarted.get(),
+            downloadBytesSucceeded.get(),
+            downloadBytesFailed.get(),
+            totalDownloadTimeInMillis.get(),
+            downloadBytesMovingAverageReference.get().getAverage(),
+            downloadBytesPerSecMovingAverageReference.get().getAverage(),
+            downloadTimeMsMovingAverageReference.get().getAverage()
         );
     }
 
@@ -376,6 +622,61 @@ public class RemoteTranslogTracker {
          */
         public final double uploadTimeMovingAverage;
 
+        /**
+         * Epoch timestamp of the last successful Remote Translog Store upload.
+         */
+        public final long lastDownloadTimestamp;
+
+        /**
+         * Total number of Remote Translog Store uploads that have been started.
+         */
+        public final long totalDownloadsStarted;
+
+        /**
+         * Total number of Remote Translog Store uploads that have failed.
+         */
+        public final long totalDownloadsFailed;
+
+        /**
+         * Total number of Remote Translog Store that have been successful.
+         */
+        public final long totalDownloadsSucceeded;
+
+        /**
+         * Total number of byte uploads to Remote Translog Store that have been started.
+         */
+        public final long downloadBytesStarted;
+
+        /**
+         * Total number of byte uploads to Remote Translog Store that have failed.
+         */
+        public final long downloadBytesFailed;
+
+        /**
+         * Total number of byte uploads to Remote Translog Store that have been successful.
+         */
+        public final long downloadBytesSucceeded;
+
+        /**
+         * Total time spent on Remote Translog Store uploads.
+         */
+        public final long totalDownloadTimeInMillis;
+
+        /**
+         * Size of a Remote Translog Store upload in bytes.
+         */
+        public final double downloadBytesMovingAverage;
+
+        /**
+         * Speed of a Remote Translog Store upload in bytes-per-second.
+         */
+        public final double downloadBytesPerSecMovingAverage;
+
+        /**
+         *  Time taken by a Remote Translog Store upload.
+         */
+        public final double downloadTimeMovingAverage;
+
         public Stats(
             ShardId shardId,
             long lastUploadTimestamp,
@@ -388,9 +689,21 @@ public class RemoteTranslogTracker {
             long totalUploadTimeInMillis,
             double uploadBytesMovingAverage,
             double uploadBytesPerSecMovingAverage,
-            double uploadTimeMovingAverage
+            double uploadTimeMovingAverage,
+            long lastDownloadTimestamp,
+            long totalDownloadsStarted,
+            long totalDownloadsSucceeded,
+            long totalDownloadsFailed,
+            long downloadBytesStarted,
+            long downloadBytesSucceeded,
+            long downloadBytesFailed,
+            long totalDownloadTimeInMillis,
+            double downloadBytesMovingAverage,
+            double downloadBytesPerSecMovingAverage,
+            double downloadTimeMovingAverage
         ) {
             this.shardId = shardId;
+
             this.lastUploadTimestamp = lastUploadTimestamp;
             this.totalUploadsStarted = totalUploadsStarted;
             this.totalUploadsFailed = totalUploadsFailed;
@@ -402,11 +715,24 @@ public class RemoteTranslogTracker {
             this.uploadBytesMovingAverage = uploadBytesMovingAverage;
             this.uploadBytesPerSecMovingAverage = uploadBytesPerSecMovingAverage;
             this.uploadTimeMovingAverage = uploadTimeMovingAverage;
+
+            this.lastDownloadTimestamp = lastDownloadTimestamp;
+            this.totalDownloadsStarted = totalDownloadsStarted;
+            this.totalDownloadsFailed = totalDownloadsFailed;
+            this.totalDownloadsSucceeded = totalDownloadsSucceeded;
+            this.downloadBytesStarted = downloadBytesStarted;
+            this.downloadBytesFailed = downloadBytesFailed;
+            this.downloadBytesSucceeded = downloadBytesSucceeded;
+            this.totalDownloadTimeInMillis = totalDownloadTimeInMillis;
+            this.downloadBytesMovingAverage = downloadBytesMovingAverage;
+            this.downloadBytesPerSecMovingAverage = downloadBytesPerSecMovingAverage;
+            this.downloadTimeMovingAverage = downloadTimeMovingAverage;
         }
 
         public Stats(StreamInput in) throws IOException {
             try {
                 this.shardId = new ShardId(in);
+
                 this.lastUploadTimestamp = in.readLong();
                 this.totalUploadsStarted = in.readLong();
                 this.totalUploadsFailed = in.readLong();
@@ -418,6 +744,18 @@ public class RemoteTranslogTracker {
                 this.uploadBytesMovingAverage = in.readDouble();
                 this.uploadBytesPerSecMovingAverage = in.readDouble();
                 this.uploadTimeMovingAverage = in.readDouble();
+
+                this.lastDownloadTimestamp = in.readLong();
+                this.totalDownloadsStarted = in.readLong();
+                this.totalDownloadsFailed = in.readLong();
+                this.totalDownloadsSucceeded = in.readLong();
+                this.downloadBytesStarted = in.readLong();
+                this.downloadBytesFailed = in.readLong();
+                this.downloadBytesSucceeded = in.readLong();
+                this.totalDownloadTimeInMillis = in.readLong();
+                this.downloadBytesMovingAverage = in.readDouble();
+                this.downloadBytesPerSecMovingAverage = in.readDouble();
+                this.downloadTimeMovingAverage = in.readDouble();
             } catch (IOException e) {
                 throw e;
             }
@@ -426,6 +764,7 @@ public class RemoteTranslogTracker {
         @Override
         public void writeTo(StreamOutput out) throws IOException {
             shardId.writeTo(out);
+
             out.writeLong(lastUploadTimestamp);
             out.writeLong(totalUploadsStarted);
             out.writeLong(totalUploadsFailed);
@@ -437,6 +776,18 @@ public class RemoteTranslogTracker {
             out.writeDouble(uploadBytesMovingAverage);
             out.writeDouble(uploadBytesPerSecMovingAverage);
             out.writeDouble(uploadTimeMovingAverage);
+
+            out.writeLong(lastDownloadTimestamp);
+            out.writeLong(totalDownloadsStarted);
+            out.writeLong(totalDownloadsFailed);
+            out.writeLong(totalDownloadsSucceeded);
+            out.writeLong(downloadBytesStarted);
+            out.writeLong(downloadBytesFailed);
+            out.writeLong(downloadBytesSucceeded);
+            out.writeLong(totalDownloadTimeInMillis);
+            out.writeDouble(downloadBytesMovingAverage);
+            out.writeDouble(downloadBytesPerSecMovingAverage);
+            out.writeDouble(downloadTimeMovingAverage);
         }
 
         @Override
@@ -456,7 +807,18 @@ public class RemoteTranslogTracker {
                 && this.totalUploadTimeInMillis == other.totalUploadTimeInMillis
                 && Double.compare(this.uploadBytesMovingAverage, other.uploadBytesMovingAverage) == 0
                 && Double.compare(this.uploadBytesPerSecMovingAverage, other.uploadBytesPerSecMovingAverage) == 0
-                && Double.compare(this.uploadTimeMovingAverage, other.uploadTimeMovingAverage) == 0;
+                && Double.compare(this.uploadTimeMovingAverage, other.uploadTimeMovingAverage) == 0
+                && this.lastDownloadTimestamp == other.lastDownloadTimestamp
+                && this.totalDownloadsStarted == other.totalDownloadsStarted
+                && this.totalDownloadsFailed == other.totalDownloadsFailed
+                && this.totalDownloadsSucceeded == other.totalDownloadsSucceeded
+                && this.downloadBytesStarted == other.downloadBytesStarted
+                && this.downloadBytesFailed == other.downloadBytesFailed
+                && this.downloadBytesSucceeded == other.downloadBytesSucceeded
+                && this.totalDownloadTimeInMillis == other.totalDownloadTimeInMillis
+                && Double.compare(this.downloadBytesMovingAverage, other.downloadBytesMovingAverage) == 0
+                && Double.compare(this.downloadBytesPerSecMovingAverage, other.downloadBytesPerSecMovingAverage) == 0
+                && Double.compare(this.downloadTimeMovingAverage, other.downloadTimeMovingAverage) == 0;
         }
 
         @Override
@@ -473,7 +835,18 @@ public class RemoteTranslogTracker {
                 totalUploadTimeInMillis,
                 uploadBytesMovingAverage,
                 uploadBytesPerSecMovingAverage,
-                uploadTimeMovingAverage
+                uploadTimeMovingAverage,
+                lastDownloadTimestamp,
+                totalDownloadsStarted,
+                totalDownloadsFailed,
+                totalDownloadsSucceeded,
+                downloadBytesStarted,
+                downloadBytesFailed,
+                downloadBytesSucceeded,
+                totalDownloadTimeInMillis,
+                downloadBytesMovingAverage,
+                downloadBytesPerSecMovingAverage,
+                downloadTimeMovingAverage
             );
         }
     }
@@ -484,17 +857,6 @@ public class RemoteTranslogTracker {
      * @return true if stats are same and false otherwise
      */
     boolean hasSameStatsAs(RemoteTranslogTracker.Stats other) {
-        return this.getShardId().toString().equals(other.shardId.toString())
-            && this.getLastUploadTimestamp() == other.lastUploadTimestamp
-            && this.getTotalUploadsStarted() == other.totalUploadsStarted
-            && this.getTotalUploadsFailed() == other.totalUploadsFailed
-            && this.getTotalUploadsSucceeded() == other.totalUploadsSucceeded
-            && this.getUploadBytesStarted() == other.uploadBytesStarted
-            && this.getUploadBytesFailed() == other.uploadBytesFailed
-            && this.getUploadBytesSucceeded() == other.uploadBytesSucceeded
-            && this.getTotalUploadTimeInMillis() == other.totalUploadTimeInMillis
-            && Double.compare(this.getUploadBytesMovingAverage(), other.uploadBytesMovingAverage) == 0
-            && Double.compare(this.getUploadBytesPerSecMovingAverage(), other.uploadBytesPerSecMovingAverage) == 0
-            && Double.compare(this.getUploadTimeMovingAverage(), other.uploadTimeMovingAverage) == 0;
+        return this.stats().equals(other);
     }
 }

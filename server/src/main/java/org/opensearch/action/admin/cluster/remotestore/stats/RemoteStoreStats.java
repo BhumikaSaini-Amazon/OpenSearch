@@ -85,11 +85,12 @@ public class RemoteStoreStats implements Writeable, ToXContentFragment {
         builder.endObject(); // segment
 
         builder.startObject(Fields.TRANSLOG);
-        builder.startObject(SubFields.DOWNLOAD);
-        builder.endObject(); // translog.download
         builder.startObject(SubFields.UPLOAD);
         buildTranslogUploadStats(builder);
         builder.endObject(); // translog.upload
+        builder.startObject(SubFields.DOWNLOAD);
+        buildTranslogDownloadStats(builder);
+        builder.endObject(); // translog.download
         builder.endObject(); // translog
 
         return builder.endObject();
@@ -129,6 +130,36 @@ public class RemoteStoreStats implements Writeable, ToXContentFragment {
 
         builder.startObject(UploadStatsFields.UPLOAD_TIME_IN_MILLIS);
         builder.field(SubFields.MOVING_AVG, remoteTranslogShardStats.uploadTimeMovingAverage);
+        builder.endObject();
+    }
+
+    private void buildTranslogDownloadStats(XContentBuilder builder) throws IOException {
+        builder.field(DownloadStatsFields.LAST_DOWNLOAD_TIMESTAMP, remoteTranslogShardStats.lastDownloadTimestamp);
+
+        builder.startObject(DownloadStatsFields.TOTAL_DOWNLOADS);
+        builder.field(SubFields.STARTED, remoteTranslogShardStats.totalDownloadsStarted)
+            .field(SubFields.FAILED, remoteTranslogShardStats.totalDownloadsFailed)
+            .field(SubFields.SUCCEEDED, remoteTranslogShardStats.totalDownloadsSucceeded);
+        builder.endObject();
+
+        builder.startObject(DownloadStatsFields.TOTAL_DOWNLOADS_IN_BYTES);
+        builder.field(SubFields.STARTED, remoteTranslogShardStats.downloadBytesStarted)
+            .field(SubFields.FAILED, remoteTranslogShardStats.downloadBytesFailed)
+            .field(SubFields.SUCCEEDED, remoteTranslogShardStats.downloadBytesSucceeded);
+        builder.endObject();
+
+        builder.field(DownloadStatsFields.TOTAL_DOWNLOAD_TIME_IN_MILLIS, remoteTranslogShardStats.totalDownloadTimeInMillis);
+
+        builder.startObject(DownloadStatsFields.DOWNLOAD_BYTES);
+        builder.field(SubFields.MOVING_AVG, remoteTranslogShardStats.downloadBytesMovingAverage);
+        builder.endObject();
+
+        builder.startObject(DownloadStatsFields.DOWNLOAD_LATENCY_IN_BYTES_PER_SEC);
+        builder.field(SubFields.MOVING_AVG, remoteTranslogShardStats.downloadBytesPerSecMovingAverage);
+        builder.endObject();
+
+        builder.startObject(DownloadStatsFields.DOWNLOAD_TIME_IN_MILLIS);
+        builder.field(SubFields.MOVING_AVG, remoteTranslogShardStats.downloadTimeMovingAverage);
         builder.endObject();
     }
 
@@ -295,6 +326,13 @@ public class RemoteStoreStats implements Writeable, ToXContentFragment {
     }
 
     static final class DownloadStatsFields {
+        public static final String LAST_DOWNLOAD_TIMESTAMP = "last_download_timestamp";
+        public static final String TOTAL_DOWNLOADS = "total_downloads";
+        public static final String TOTAL_DOWNLOAD_TIME_IN_MILLIS = "total_download_time_in_millis";
+        public static final String DOWNLOAD_BYTES = "download_bytes";
+        public static final String DOWNLOAD_LATENCY_IN_BYTES_PER_SEC = "download_latency_in_bytes_per_sec";
+        public static final String DOWNLOAD_TIME_IN_MILLIS = "download_time_in_millis";
+
         /**
          * Last successful sync from remote in milliseconds
          */

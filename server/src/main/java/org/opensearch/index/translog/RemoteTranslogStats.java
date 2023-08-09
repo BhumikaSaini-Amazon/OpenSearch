@@ -21,7 +21,7 @@ import java.io.IOException;
  *
  * @opensearch.internal
  */
-public class RemoteTranslogStats implements Writeable {
+public class RemoteTranslogStats implements ToXContentFragment, Writeable {
     /**
      * Epoch timestamp of the last successful Remote Translog Store upload.
      */
@@ -77,6 +77,61 @@ public class RemoteTranslogStats implements Writeable {
      */
     public double uploadTimeMovingAverage;
 
+    /**
+     * Epoch timestamp of the last successful Remote Translog Store upload.
+     */
+    public long lastDownloadTimestamp;
+
+    /**
+     * Total number of Remote Translog Store uploads that have been started.
+     */
+    public long totalDownloadsStarted;
+
+    /**
+     * Total number of Remote Translog Store uploads that have failed.
+     */
+    public long totalDownloadsFailed;
+
+    /**
+     * Total number of Remote Translog Store that have been successful.
+     */
+    public long totalDownloadsSucceeded;
+
+    /**
+     * Total number of byte uploads to Remote Translog Store that have been started.
+     */
+    public long downloadBytesStarted;
+
+    /**
+     * Total number of byte uploads to Remote Translog Store that have failed.
+     */
+    public long downloadBytesFailed;
+
+    /**
+     * Total number of byte uploads to Remote Translog Store that have been successful.
+     */
+    public long downloadBytesSucceeded;
+
+    /**
+     * Total time spent on Remote Translog Store uploads.
+     */
+    public long totalDownloadTimeInMillis;
+
+    /**
+     * Size of a Remote Translog Store upload in bytes.
+     */
+    public double downloadBytesMovingAverage;
+
+    /**
+     * Speed of a Remote Translog Store upload in bytes-per-second.
+     */
+    public double downloadBytesPerSecMovingAverage;
+
+    /**
+     *  Time taken by a Remote Translog Store upload.
+     */
+    public double downloadTimeMovingAverage;
+
     static final String REMOTE_STORE = "remote_store";
 
     static final class Flows {
@@ -99,6 +154,14 @@ public class RemoteTranslogStats implements Writeable {
         static final String TOTAL_UPLOAD_TIME_IN_MILLIS = "total_upload_time_in_millis";
         static final String UPLOAD_BYTES = "upload_bytes";
         static final String UPLOAD_TIME_IN_MILLIS = "upload_time_in_millis";
+
+        static final String TOTAL_DOWNLOADS_IN_BYTES = "total_downloads_in_bytes";
+        static final String DOWNLOAD_LATENCY_IN_BYTES_PER_SEC = "download_latency_in_bytes_per_sec";
+        static final String LAST_DOWNLOAD_TIMESTAMP = "last_download_timestamp";
+        static final String TOTAL_DOWNLOADS = "total_downloads";
+        static final String TOTAL_DOWNLOAD_TIME_IN_MILLIS = "total_download_time_in_millis";
+        static final String DOWNLOAD_BYTES = "download_bytes";
+        static final String DOWNLOAD_TIME_IN_MILLIS = "download_time_in_millis";
     }
 
     public RemoteTranslogStats(
@@ -112,7 +175,18 @@ public class RemoteTranslogStats implements Writeable {
         long totalUploadTimeInMillis,
         double uploadBytesMovingAverage,
         double uploadBytesPerSecMovingAverage,
-        double uploadTimeMovingAverage
+        double uploadTimeMovingAverage,
+        long lastDownloadTimestamp,
+        long totalDownloadsStarted,
+        long totalDownloadsSucceeded,
+        long totalDownloadsFailed,
+        long downloadBytesStarted,
+        long downloadBytesSucceeded,
+        long downloadBytesFailed,
+        long totalDownloadTimeInMillis,
+        double downloadBytesMovingAverage,
+        double downloadBytesPerSecMovingAverage,
+        double downloadTimeMovingAverage
     ) {
         this.lastUploadTimestamp = lastUploadTimestamp;
         this.totalUploadsStarted = totalUploadsStarted;
@@ -125,6 +199,17 @@ public class RemoteTranslogStats implements Writeable {
         this.uploadBytesMovingAverage = uploadBytesMovingAverage;
         this.uploadBytesPerSecMovingAverage = uploadBytesPerSecMovingAverage;
         this.uploadTimeMovingAverage = uploadTimeMovingAverage;
+        this.lastDownloadTimestamp = lastDownloadTimestamp;
+        this.totalDownloadsStarted = totalDownloadsStarted;
+        this.totalDownloadsFailed = totalDownloadsFailed;
+        this.totalDownloadsSucceeded = totalDownloadsSucceeded;
+        this.downloadBytesStarted = downloadBytesStarted;
+        this.downloadBytesFailed = downloadBytesFailed;
+        this.downloadBytesSucceeded = downloadBytesSucceeded;
+        this.totalDownloadTimeInMillis = totalDownloadTimeInMillis;
+        this.downloadBytesMovingAverage = downloadBytesMovingAverage;
+        this.downloadBytesPerSecMovingAverage = downloadBytesPerSecMovingAverage;
+        this.downloadTimeMovingAverage = downloadTimeMovingAverage;
     }
 
     public RemoteTranslogStats(StreamInput in) throws IOException {
@@ -141,14 +226,40 @@ public class RemoteTranslogStats implements Writeable {
         initializeRemotestoreStatsAPIOnlyFields();
     }
 
+    public RemoteTranslogStats(RemoteTranslogStats other) {
+        this.totalUploadsStarted = other.totalUploadsStarted;
+        this.totalUploadsFailed = other.totalUploadsFailed;
+        this.totalUploadsSucceeded = other.totalUploadsSucceeded;
+        this.uploadBytesStarted = other.uploadBytesStarted;
+        this.uploadBytesFailed = other.uploadBytesFailed;
+        this.uploadBytesSucceeded = other.uploadBytesSucceeded;
+        this.totalUploadTimeInMillis = other.totalUploadTimeInMillis;
+        this.totalDownloadsStarted = other.totalDownloadsStarted;
+        this.totalDownloadsFailed = other.totalDownloadsFailed;
+        this.totalDownloadsSucceeded = other.totalDownloadsSucceeded;
+        this.downloadBytesStarted = other.downloadBytesStarted;
+        this.downloadBytesFailed = other.downloadBytesFailed;
+        this.downloadBytesSucceeded = other.downloadBytesSucceeded;
+        this.totalDownloadTimeInMillis = other.totalDownloadTimeInMillis;
+        initializeRemotestoreStatsAPIOnlyFields();
+    }
+
     private void readNodesStatsAPIFields(StreamInput in) throws IOException {
-        this.totalUploadsStarted = in.readVLong();
-        this.totalUploadsFailed = in.readVLong();
-        this.totalUploadsSucceeded = in.readVLong();
-        this.uploadBytesStarted = in.readVLong();
-        this.uploadBytesFailed = in.readVLong();
-        this.uploadBytesSucceeded = in.readVLong();
-        this.totalUploadTimeInMillis = in.readVLong();
+        this.totalUploadsStarted = in.readLong();
+        this.totalUploadsFailed = in.readLong();
+        this.totalUploadsSucceeded = in.readLong();
+        this.uploadBytesStarted = in.readLong();
+        this.uploadBytesFailed = in.readLong();
+        this.uploadBytesSucceeded = in.readLong();
+        this.totalUploadTimeInMillis = in.readLong();
+
+        this.totalDownloadsStarted = in.readLong();
+        this.totalDownloadsFailed = in.readLong();
+        this.totalDownloadsSucceeded = in.readLong();
+        this.downloadBytesStarted = in.readLong();
+        this.downloadBytesFailed = in.readLong();
+        this.downloadBytesSucceeded = in.readLong();
+        this.totalDownloadTimeInMillis = in.readLong();
     }
 
     private void initializeNodesStatsAPIFields() {
@@ -159,6 +270,14 @@ public class RemoteTranslogStats implements Writeable {
         this.uploadBytesFailed = 0L;
         this.uploadBytesSucceeded = 0L;
         this.totalUploadTimeInMillis = 0L;
+
+        this.totalDownloadsStarted = 0L;
+        this.totalDownloadsFailed = 0L;
+        this.totalDownloadsSucceeded = 0L;
+        this.downloadBytesStarted = 0L;
+        this.downloadBytesFailed = 0L;
+        this.downloadBytesSucceeded = 0L;
+        this.totalDownloadTimeInMillis = 0L;
     }
 
     private void initializeRemotestoreStatsAPIOnlyFields() {
@@ -168,6 +287,11 @@ public class RemoteTranslogStats implements Writeable {
         this.uploadBytesMovingAverage = 0D;
         this.uploadBytesPerSecMovingAverage = 0D;
         this.uploadTimeMovingAverage = 0D;
+
+        this.lastDownloadTimestamp = 0L;
+        this.downloadBytesMovingAverage = 0D;
+        this.downloadBytesPerSecMovingAverage = 0D;
+        this.downloadTimeMovingAverage = 0D;
     }
 
     @Override
@@ -176,13 +300,21 @@ public class RemoteTranslogStats implements Writeable {
     }
 
     private void writeNodesStatsAPIFields(StreamOutput out) throws IOException {
-        out.writeVLong(totalUploadsStarted);
-        out.writeVLong(totalUploadsFailed);
-        out.writeVLong(totalUploadsSucceeded);
-        out.writeVLong(uploadBytesStarted);
-        out.writeVLong(uploadBytesFailed);
-        out.writeVLong(uploadBytesSucceeded);
-        out.writeVLong(totalUploadTimeInMillis);
+        out.writeLong(totalUploadsStarted);
+        out.writeLong(totalUploadsFailed);
+        out.writeLong(totalUploadsSucceeded);
+        out.writeLong(uploadBytesStarted);
+        out.writeLong(uploadBytesFailed);
+        out.writeLong(uploadBytesSucceeded);
+        out.writeLong(totalUploadTimeInMillis);
+
+        out.writeLong(totalDownloadsStarted);
+        out.writeLong(totalDownloadsFailed);
+        out.writeLong(totalDownloadsSucceeded);
+        out.writeLong(downloadBytesStarted);
+        out.writeLong(downloadBytesFailed);
+        out.writeLong(downloadBytesSucceeded);
+        out.writeLong(totalDownloadTimeInMillis);
     }
 
     // @Override
@@ -223,16 +355,17 @@ public class RemoteTranslogStats implements Writeable {
     // );
     // }
 
-    public XContentBuilder toXContent(XContentBuilder builder) throws IOException {
+    @Override
+    public XContentBuilder toXContent(XContentBuilder builder, Params params) throws IOException {
         builder.startObject(REMOTE_STORE);
 
         builder.startObject(Flows.UPLOAD);
         addRemoteTranslogUploadStatsXContent(builder);
         builder.endObject(); // translog.remote_store.upload
 
-//        builder.startObject(Flows.DOWNLOAD);
-//        addRemoteTranslogDownloadStatsXContent(builder);
-//        builder.endObject(); // translog.remote_store.download
+        builder.startObject(Flows.DOWNLOAD);
+        addRemoteTranslogDownloadStatsXContent(builder);
+        builder.endObject(); // translog.remote_store.download
 
         builder.endObject(); // translog.remote_store
 
@@ -251,6 +384,14 @@ public class RemoteTranslogStats implements Writeable {
         this.uploadBytesFailed += other.uploadBytesFailed;
         this.uploadBytesSucceeded += other.uploadBytesSucceeded;
         this.totalUploadTimeInMillis += other.totalUploadTimeInMillis;
+
+        this.totalDownloadsStarted += other.totalDownloadsStarted;
+        this.totalDownloadsFailed += other.totalDownloadsFailed;
+        this.totalDownloadsSucceeded += other.totalDownloadsSucceeded;
+        this.downloadBytesStarted += other.downloadBytesStarted;
+        this.downloadBytesFailed += other.downloadBytesFailed;
+        this.downloadBytesSucceeded += other.downloadBytesSucceeded;
+        this.totalDownloadTimeInMillis += other.totalDownloadTimeInMillis;
     }
 
     void addRemoteTranslogUploadStatsXContent(XContentBuilder builder) throws IOException {
@@ -269,5 +410,19 @@ public class RemoteTranslogStats implements Writeable {
         builder.field(Fields.TOTAL_UPLOAD_TIME_IN_MILLIS, totalUploadTimeInMillis);
     }
 
-    void addRemoteTranslogDownloadStatsXContent(XContentBuilder builder) throws IOException {}
+    void addRemoteTranslogDownloadStatsXContent(XContentBuilder builder) throws IOException {
+        builder.startObject(Fields.TOTAL_DOWNLOADS);
+        builder.field(SubFields.STARTED, totalDownloadsStarted)
+            .field(SubFields.FAILED, totalDownloadsFailed)
+            .field(SubFields.SUCCEEDED, totalDownloadsSucceeded);
+        builder.endObject();
+
+        builder.startObject(Fields.TOTAL_DOWNLOADS_IN_BYTES);
+        builder.field(SubFields.STARTED, downloadBytesStarted)
+            .field(SubFields.FAILED, downloadBytesFailed)
+            .field(SubFields.SUCCEEDED, downloadBytesSucceeded);
+        builder.endObject();
+
+        builder.field(Fields.TOTAL_DOWNLOAD_TIME_IN_MILLIS, totalDownloadTimeInMillis);
+    }
 }
