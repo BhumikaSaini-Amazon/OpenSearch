@@ -655,6 +655,9 @@ public final class ClusterSettings extends AbstractScopedSettings {
                 RemoteStorePressureSettings.UPLOAD_BYTES_MOVING_AVERAGE_WINDOW_SIZE,
                 RemoteStorePressureSettings.UPLOAD_BYTES_PER_SEC_MOVING_AVERAGE_WINDOW_SIZE,
                 RemoteStorePressureSettings.UPLOAD_TIME_MOVING_AVERAGE_WINDOW_SIZE,
+                RemoteStorePressureSettings.DOWNLOAD_BYTES_MOVING_AVERAGE_WINDOW_SIZE,
+                RemoteStorePressureSettings.DOWNLOAD_BYTES_PER_SEC_MOVING_AVERAGE_WINDOW_SIZE,
+                RemoteStorePressureSettings.DOWNLOAD_TIME_MOVING_AVERAGE_WINDOW_SIZE,
 
                 // Related to monitoring of task cancellation
                 TaskCancellationMonitoringSettings.IS_ENABLED_SETTING,
