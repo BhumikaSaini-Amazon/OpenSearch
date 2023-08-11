@@ -639,7 +639,7 @@ public abstract class IndexShardTestCase extends OpenSearchTestCase {
                 clusterSettings
             );
             Store remoteStore = null;
-            RemoteStorePressureService remoteStorePressureService = null;
+            RemoteStorePressureService remoteStorePressureService;
             RepositoriesService mockRepoSvc = mock(RepositoriesService.class);
 
             if (indexSettings.isRemoteStoreEnabled()) {
@@ -657,15 +657,17 @@ public abstract class IndexShardTestCase extends OpenSearchTestCase {
                 remoteStorePressureService = new RemoteStorePressureService(clusterService, indexSettings.getSettings());
                 BlobStoreRepository repo = createRepository(remotePath);
                 when(mockRepoSvc.repository(any())).thenAnswer(invocationOnMock -> repo);
+            } else {
+                remoteStorePressureService = null;
             }
 
             final BiFunction<IndexSettings, ShardRouting, TranslogFactory> translogFactorySupplier = (settings, shardRouting) -> {
                 if (settings.isRemoteTranslogStoreEnabled() && shardRouting.primary()) {
-
                     return new RemoteBlobStoreInternalTranslogFactory(
                         () -> mockRepoSvc,
                         threadPool,
-                        settings.getRemoteStoreTranslogRepository()
+                        settings.getRemoteStoreTranslogRepository(),
+                        remoteStorePressureService.getRemoteTranslogTracker(shardRouting.shardId())
                     );
                 }
                 return new InternalTranslogFactory();
