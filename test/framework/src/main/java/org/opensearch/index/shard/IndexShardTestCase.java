@@ -662,7 +662,6 @@ public abstract class IndexShardTestCase extends OpenSearchTestCase {
 
             final BiFunction<IndexSettings, ShardRouting, TranslogFactory> translogFactorySupplier = (settings, shardRouting) -> {
                 if (settings.isRemoteTranslogStoreEnabled() && shardRouting.primary()) {
-
                     return new RemoteBlobStoreInternalTranslogFactory(
                         () -> mockRepoSvc,
                         threadPool,

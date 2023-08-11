@@ -24,6 +24,7 @@ import org.opensearch.common.lucene.store.ByteArrayIndexInput;
 import org.opensearch.core.action.ActionListener;
 import org.opensearch.core.common.bytes.BytesReference;
 import org.opensearch.core.index.shard.ShardId;
+import org.opensearch.index.remote.RemoteTranslogTransferTracker;
 import org.opensearch.index.translog.Translog;
 import org.opensearch.index.translog.transfer.listener.TranslogTransferListener;
 import org.opensearch.threadpool.ThreadPool;
@@ -59,6 +60,7 @@ public class TranslogTransferManager {
     private final BlobPath remoteMetadataTransferPath;
     private final BlobPath remoteBaseTransferPath;
     private final FileTransferTracker fileTransferTracker;
+    private final SetOnce<RemoteTranslogTransferTracker> remoteTranslogTrackerSetOnce = new SetOnce<>();
 
     private static final long TRANSFER_TIMEOUT_IN_MILLIS = 30000;
 
@@ -87,6 +89,14 @@ public class TranslogTransferManager {
         this.logger = Loggers.getLogger(getClass(), shardId);
     }
 
+    public void setRemoteTranslogTracker(RemoteTranslogTransferTracker remoteTranslogTransferTracker) {
+        remoteTranslogTrackerSetOnce.trySet(remoteTranslogTransferTracker);
+    }
+
+    public RemoteTranslogTransferTracker getRemoteTranslogTracker() {
+        return remoteTranslogTrackerSetOnce.get();
+    }
+
     public ShardId getShardId() {
         return this.shardId;
     }
@@ -94,7 +104,9 @@ public class TranslogTransferManager {
     public boolean transferSnapshot(TransferSnapshot transferSnapshot, TranslogTransferListener translogTransferListener)
         throws IOException {
         List<Exception> exceptionList = new ArrayList<>(transferSnapshot.getTranslogTransferMetadata().getCount());
+
         Set<TransferFileSnapshot> toUpload = new HashSet<>(transferSnapshot.getTranslogTransferMetadata().getCount());
+
         try {
             toUpload.addAll(fileTransferTracker.exclusionFilter(transferSnapshot.getTranslogFileSnapshots()));
             toUpload.addAll(fileTransferTracker.exclusionFilter((transferSnapshot.getCheckpointFileSnapshots())));
@@ -103,6 +115,8 @@ public class TranslogTransferManager {
                 translogTransferListener.onUploadComplete(transferSnapshot);
                 return true;
             }
+
+            translogTransferListener.beforeUpload(transferSnapshot);
             final CountDownLatch latch = new CountDownLatch(toUpload.size());
             LatchedActionListener<TransferFileSnapshot> latchedActionListener = new LatchedActionListener<>(
                 ActionListener.wrap(fileTransferTracker::onSuccess, ex -> {
@@ -180,11 +194,18 @@ public class TranslogTransferManager {
         if (Files.exists(filePath)) {
             Files.delete(filePath);
         }
+
+        long bytesToRead = 0L;
         try (InputStream inputStream = transferService.downloadBlob(remoteDataTransferPath.add(primaryTerm), fileName)) {
+            // Capture number of bytes in stats before reading
+            bytesToRead = inputStream.available();
             Files.copy(inputStream, filePath);
         }
+
         // Mark in FileTransferTracker so that the same files are not uploaded at the time of translog sync
         fileTransferTracker.add(fileName, true);
+        remoteTranslogTrackerSetOnce.get().addDownloadBytesSucceeded(bytesToRead);
+        remoteTranslogTrackerSetOnce.get().addDownloadsSucceeded(1);
     }
 
     public TranslogTransferMetadata readMetadata() throws IOException {
@@ -196,8 +217,11 @@ public class TranslogTransferManager {
                 if (blobMetadataList.isEmpty()) return;
                 String filename = blobMetadataList.get(0).name();
                 try (InputStream inputStream = transferService.downloadBlob(remoteMetadataTransferPath, filename)) {
+                    long bytesToRead = inputStream.available();
                     IndexInput indexInput = new ByteArrayIndexInput("metadata file", inputStream.readAllBytes());
                     metadataSetOnce.set(metadataStreamWrapper.readStream(indexInput));
+                    remoteTranslogTrackerSetOnce.get().addDownloadBytesSucceeded(bytesToRead);
+                    remoteTranslogTrackerSetOnce.get().addDownloadsSucceeded(1);
                 } catch (IOException e) {
                     logger.error(() -> new ParameterizedMessage("Exception while reading metadata file: {}", filename), e);
                     exceptionSetOnce.set(e);

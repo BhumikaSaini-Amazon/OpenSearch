@@ -157,6 +157,11 @@ public class TransportRemoteStoreStatsAction extends TransportBroadcastByNodeAct
             indexShard.shardId()
         );
         assert Objects.nonNull(remoteSegmentTransferTracker);
-        return new RemoteStoreStats(remoteSegmentTransferTracker.stats(), indexShard.routingEntry());
+        RemoteTranslogTransferTracker remoteTranslogTransferTracker = remoteStoreStatsTrackerFactory.getRemoteTranslogTracker(
+            indexShard.shardId()
+        );
+        assert Objects.nonNull(remoteTranslogTransferTracker);
+
+        return new RemoteStoreStats(remoteSegmentTransferTracker.stats(), remoteTranslogTransferTracker.stats(), indexShard.routingEntry());
     }
 }

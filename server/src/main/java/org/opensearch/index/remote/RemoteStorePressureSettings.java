@@ -20,7 +20,7 @@ import org.opensearch.common.settings.Settings;
  */
 public class RemoteStorePressureSettings {
 
-    static class Defaults {
+    private static class Defaults {
         private static final double BYTES_LAG_VARIANCE_FACTOR = 10.0;
         private static final double UPLOAD_TIME_LAG_VARIANCE_FACTOR = 10.0;
         private static final double VARIANCE_FACTOR_MIN_VALUE = 1.0;
@@ -68,8 +68,6 @@ public class RemoteStorePressureSettings {
     private volatile double uploadTimeLagVarianceFactor;
 
     private volatile int minConsecutiveFailuresLimit;
-
-    private volatile int movingAverageWindowSize;
 
     public RemoteStorePressureSettings(
         ClusterService clusterService,
@@ -129,9 +127,5 @@ public class RemoteStorePressureSettings {
 
     public void setMinConsecutiveFailuresLimit(int minConsecutiveFailuresLimit) {
         this.minConsecutiveFailuresLimit = minConsecutiveFailuresLimit;
-    }
-
-    public void setMovingAverageWindowSize(int movingAverageWindowSize) {
-        this.movingAverageWindowSize = movingAverageWindowSize;
     }
 }

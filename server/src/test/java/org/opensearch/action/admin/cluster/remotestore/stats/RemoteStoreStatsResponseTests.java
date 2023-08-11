@@ -16,6 +16,7 @@ import org.opensearch.core.common.bytes.BytesReference;
 import org.opensearch.core.index.shard.ShardId;
 import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.index.remote.RemoteSegmentTransferTracker;
+import org.opensearch.index.remote.RemoteTranslogTransferTracker;
 import org.opensearch.test.OpenSearchTestCase;
 import org.opensearch.threadpool.TestThreadPool;
 import org.opensearch.threadpool.ThreadPool;
@@ -28,6 +29,7 @@ import static org.opensearch.action.admin.cluster.remotestore.stats.RemoteStoreS
 import static org.opensearch.action.admin.cluster.remotestore.stats.RemoteStoreStatsTestHelper.createStatsForNewPrimary;
 import static org.opensearch.action.admin.cluster.remotestore.stats.RemoteStoreStatsTestHelper.createStatsForNewReplica;
 import static org.opensearch.action.admin.cluster.remotestore.stats.RemoteStoreStatsTestHelper.createStatsForRemoteStoreRestoredPrimary;
+import static org.opensearch.action.admin.cluster.remotestore.stats.RemoteStoreStatsTestHelper.createTranslogStats;
 import static org.opensearch.core.xcontent.ToXContent.EMPTY_PARAMS;
 
 public class RemoteStoreStatsResponseTests extends OpenSearchTestCase {
@@ -49,8 +51,9 @@ public class RemoteStoreStatsResponseTests extends OpenSearchTestCase {
 
     public void testSerializationForPrimary() throws Exception {
         RemoteSegmentTransferTracker.Stats mockPrimaryTrackerStats = createStatsForNewPrimary(shardId);
+        RemoteTranslogTransferTracker.Stats mockTranslogTrackerStats = createTranslogStats(shardId);
         ShardRouting primaryShardRouting = createShardRouting(shardId, true);
-        RemoteStoreStats primaryShardStats = new RemoteStoreStats(mockPrimaryTrackerStats, primaryShardRouting);
+        RemoteStoreStats primaryShardStats = new RemoteStoreStats(mockPrimaryTrackerStats, mockTranslogTrackerStats, primaryShardRouting);
         RemoteStoreStatsResponse statsResponse = new RemoteStoreStatsResponse(
             new RemoteStoreStats[] { primaryShardStats },
             1,
@@ -73,16 +76,17 @@ public class RemoteStoreStatsResponseTests extends OpenSearchTestCase {
         ArrayList<Map<String, Object>> perShardNumberObject = (ArrayList<Map<String, Object>>) shardsObject.get("0");
         assertEquals(perShardNumberObject.size(), 1);
         Map<String, Object> perShardCopyObject = perShardNumberObject.get(0);
-        compareStatsResponse(perShardCopyObject, mockPrimaryTrackerStats, primaryShardRouting);
+        compareStatsResponse(perShardCopyObject, mockPrimaryTrackerStats, mockTranslogTrackerStats, primaryShardRouting);
     }
 
     public void testSerializationForBothPrimaryAndReplica() throws Exception {
         RemoteSegmentTransferTracker.Stats mockPrimaryTrackerStats = createStatsForNewPrimary(shardId);
         RemoteSegmentTransferTracker.Stats mockReplicaTrackerStats = createStatsForNewReplica(shardId);
+        RemoteTranslogTransferTracker.Stats mockTranslogTrackerStats = createTranslogStats(shardId);
         ShardRouting primaryShardRouting = createShardRouting(shardId, true);
         ShardRouting replicaShardRouting = createShardRouting(shardId, false);
-        RemoteStoreStats primaryShardStats = new RemoteStoreStats(mockPrimaryTrackerStats, primaryShardRouting);
-        RemoteStoreStats replicaShardStats = new RemoteStoreStats(mockReplicaTrackerStats, replicaShardRouting);
+        RemoteStoreStats primaryShardStats = new RemoteStoreStats(mockPrimaryTrackerStats, mockTranslogTrackerStats, primaryShardRouting);
+        RemoteStoreStats replicaShardStats = new RemoteStoreStats(mockReplicaTrackerStats, mockTranslogTrackerStats, replicaShardRouting);
         RemoteStoreStatsResponse statsResponse = new RemoteStoreStatsResponse(
             new RemoteStoreStats[] { primaryShardStats, replicaShardStats },
             2,
@@ -109,9 +113,9 @@ public class RemoteStoreStatsResponseTests extends OpenSearchTestCase {
                 RemoteStoreStats.RoutingFields.PRIMARY
             );
             if (isPrimary) {
-                compareStatsResponse(shardObject, mockPrimaryTrackerStats, primaryShardRouting);
+                compareStatsResponse(shardObject, mockPrimaryTrackerStats, mockTranslogTrackerStats, primaryShardRouting);
             } else {
-                compareStatsResponse(shardObject, mockReplicaTrackerStats, replicaShardRouting);
+                compareStatsResponse(shardObject, mockReplicaTrackerStats, mockTranslogTrackerStats, replicaShardRouting);
             }
         });
     }
@@ -119,10 +123,11 @@ public class RemoteStoreStatsResponseTests extends OpenSearchTestCase {
     public void testSerializationForBothRemoteStoreRestoredPrimaryAndReplica() throws Exception {
         RemoteSegmentTransferTracker.Stats mockPrimaryTrackerStats = createStatsForRemoteStoreRestoredPrimary(shardId);
         RemoteSegmentTransferTracker.Stats mockReplicaTrackerStats = createStatsForNewReplica(shardId);
+        RemoteTranslogTransferTracker.Stats mockTranslogTrackerStats = createTranslogStats(shardId);
         ShardRouting primaryShardRouting = createShardRouting(shardId, true);
         ShardRouting replicaShardRouting = createShardRouting(shardId, false);
-        RemoteStoreStats primaryShardStats = new RemoteStoreStats(mockPrimaryTrackerStats, primaryShardRouting);
-        RemoteStoreStats replicaShardStats = new RemoteStoreStats(mockReplicaTrackerStats, replicaShardRouting);
+        RemoteStoreStats primaryShardStats = new RemoteStoreStats(mockPrimaryTrackerStats, mockTranslogTrackerStats, primaryShardRouting);
+        RemoteStoreStats replicaShardStats = new RemoteStoreStats(mockReplicaTrackerStats, mockTranslogTrackerStats, replicaShardRouting);
         RemoteStoreStatsResponse statsResponse = new RemoteStoreStatsResponse(
             new RemoteStoreStats[] { primaryShardStats, replicaShardStats },
             2,
@@ -149,9 +154,9 @@ public class RemoteStoreStatsResponseTests extends OpenSearchTestCase {
                 RemoteStoreStats.RoutingFields.PRIMARY
             );
             if (isPrimary) {
-                compareStatsResponse(shardObject, mockPrimaryTrackerStats, primaryShardRouting);
+                compareStatsResponse(shardObject, mockPrimaryTrackerStats, mockTranslogTrackerStats, primaryShardRouting);
             } else {
-                compareStatsResponse(shardObject, mockReplicaTrackerStats, replicaShardRouting);
+                compareStatsResponse(shardObject, mockReplicaTrackerStats, mockTranslogTrackerStats, replicaShardRouting);
             }
         });
     }

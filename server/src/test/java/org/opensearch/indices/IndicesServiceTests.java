@@ -67,6 +67,7 @@ import org.opensearch.index.engine.InternalEngineFactory;
 import org.opensearch.index.mapper.KeywordFieldMapper;
 import org.opensearch.index.mapper.Mapper;
 import org.opensearch.index.mapper.MapperService;
+import org.opensearch.index.remote.RemoteStorePressureService;
 import org.opensearch.index.shard.IllegalIndexShardStateException;
 import org.opensearch.index.shard.IndexShard;
 import org.opensearch.index.shard.IndexShardState;
@@ -618,5 +619,16 @@ public class IndicesServiceTests extends OpenSearchSingleNodeTestCase {
         final String pattern =
             ".*multiple engine factories provided for \\[foobar/.*\\]: \\[.*FooEngineFactory\\],\\[.*BarEngineFactory\\].*";
         assertThat(e, hasToString(new RegexMatcher(pattern)));
+    }
+
+    public void testSetPressureService() {
+        IndicesService indicesService = getIndicesService();
+        RemoteStorePressureService remoteStorePressureService1 = mock(RemoteStorePressureService.class);
+        RemoteStorePressureService remoteStorePressureService2 = mock(RemoteStorePressureService.class);
+        assertEquals(null, indicesService.getPressureService());
+        indicesService.setPressureService(remoteStorePressureService1);
+        assertEquals(remoteStorePressureService1, indicesService.getPressureService());
+        indicesService.setPressureService(remoteStorePressureService2);
+        assertEquals(remoteStorePressureService1, indicesService.getPressureService());
     }
 }
