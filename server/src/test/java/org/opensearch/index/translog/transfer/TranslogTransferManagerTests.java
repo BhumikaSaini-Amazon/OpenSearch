@@ -16,8 +16,8 @@ import org.opensearch.common.blobstore.BlobContainer;
 import org.opensearch.common.blobstore.BlobMetadata;
 import org.opensearch.common.blobstore.BlobPath;
 import org.opensearch.common.blobstore.BlobStore;
-import org.opensearch.common.blobstore.stream.write.WritePriority;
 import org.opensearch.common.blobstore.support.PlainBlobMetadata;
+import org.opensearch.common.blobstore.stream.write.WritePriority;
 import org.opensearch.core.index.Index;
 import org.opensearch.core.index.shard.ShardId;
 import org.opensearch.index.translog.Translog;
@@ -44,6 +44,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyMap;
 import static org.mockito.ArgumentMatchers.anySet;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.any;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doNothing;
@@ -125,6 +126,9 @@ public class TranslogTransferManagerTests extends OpenSearchTestCase {
         );
 
         assertTrue(translogTransferManager.transferSnapshot(createTransferSnapshot(), new TranslogTransferListener() {
+            @Override
+            public void beforeUpload(TransferSnapshot transferSnapshot) throws IOException {}
+
             @Override
             public void onUploadComplete(TransferSnapshot transferSnapshot) {
                 translogTransferSucceeded.incrementAndGet();
@@ -431,7 +435,7 @@ public class TranslogTransferManagerTests extends OpenSearchTestCase {
             .listAllInSortedOrderAsync(
                 eq(ThreadPool.Names.REMOTE_PURGE),
                 any(BlobPath.class),
-                eq(TranslogTransferMetadata.METADATA_PREFIX),
+                anyString(),
                 anyInt(),
                 any(ActionListener.class)
             );

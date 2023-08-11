@@ -41,6 +41,7 @@ import org.opensearch.env.Environment;
 import org.opensearch.env.TestEnvironment;
 import org.opensearch.index.IndexSettings;
 import org.opensearch.index.engine.MissingHistoryOperationsException;
+import org.opensearch.index.remote.RemoteTranslogTracker;
 import org.opensearch.index.seqno.LocalCheckpointTracker;
 import org.opensearch.index.seqno.LocalCheckpointTrackerTests;
 import org.opensearch.index.seqno.SequenceNumbers;
@@ -172,7 +173,8 @@ public class RemoteFSTranslogTests extends OpenSearchTestCase {
             getPersistedSeqNoConsumer(),
             repository,
             threadPool,
-            primaryMode::get
+            primaryMode::get,
+            new RemoteTranslogTracker(shardId, 10, 10, 10, 10, 10, 10)
         );
 
     }
@@ -1223,7 +1225,8 @@ public class RemoteFSTranslogTests extends OpenSearchTestCase {
                 persistedSeqNos::add,
                 repository,
                 threadPool,
-                () -> Boolean.TRUE
+                () -> Boolean.TRUE,
+                new RemoteTranslogTracker(shardId, 10, 10, 10, 10, 10, 10)
             ) {
                 @Override
                 ChannelFactory getChannelFactory() {
@@ -1329,7 +1332,8 @@ public class RemoteFSTranslogTests extends OpenSearchTestCase {
                 persistedSeqNos::add,
                 repository,
                 threadPool,
-                () -> Boolean.TRUE
+                () -> Boolean.TRUE,
+                new RemoteTranslogTracker(shardId, 10, 10, 10, 10, 10, 10)
             ) {
                 @Override
                 ChannelFactory getChannelFactory() {
