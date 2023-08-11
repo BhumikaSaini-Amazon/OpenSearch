@@ -29,6 +29,9 @@ public class RemoteStorePressureSettings {
         private static final int UPLOAD_BYTES_MOVING_AVERAGE_WINDOW_SIZE = 20;
         private static final int UPLOAD_BYTES_PER_SEC_MOVING_AVERAGE_WINDOW_SIZE = 20;
         private static final int UPLOAD_TIME_MOVING_AVERAGE_WINDOW_SIZE = 20;
+        private static final int DOWNLOAD_BYTES_MOVING_AVERAGE_WINDOW_SIZE = 20;
+        private static final int DOWNLOAD_BYTES_PER_SEC_MOVING_AVERAGE_WINDOW_SIZE = 20;
+        private static final int DOWNLOAD_TIME_MOVING_AVERAGE_WINDOW_SIZE = 20;
         private static final int MOVING_AVERAGE_WINDOW_SIZE_MIN_VALUE = 5;
     }
 
@@ -64,7 +67,7 @@ public class RemoteStorePressureSettings {
     );
 
     public static final Setting<Integer> UPLOAD_BYTES_MOVING_AVERAGE_WINDOW_SIZE = Setting.intSetting(
-        "remote_store.segment.pressure.upload_bytes_moving_average_window_size",
+        "remote_store.pressure.upload_bytes_moving_average_window_size",
         Defaults.UPLOAD_BYTES_MOVING_AVERAGE_WINDOW_SIZE,
         Defaults.MOVING_AVERAGE_WINDOW_SIZE_MIN_VALUE,
         Setting.Property.Dynamic,
@@ -72,7 +75,7 @@ public class RemoteStorePressureSettings {
     );
 
     public static final Setting<Integer> UPLOAD_BYTES_PER_SEC_MOVING_AVERAGE_WINDOW_SIZE = Setting.intSetting(
-        "remote_store.segment.pressure.upload_bytes_per_sec_moving_average_window_size",
+        "remote_store.pressure.upload_bytes_per_sec_moving_average_window_size",
         Defaults.UPLOAD_BYTES_PER_SEC_MOVING_AVERAGE_WINDOW_SIZE,
         Defaults.MOVING_AVERAGE_WINDOW_SIZE_MIN_VALUE,
         Setting.Property.Dynamic,
@@ -80,8 +83,32 @@ public class RemoteStorePressureSettings {
     );
 
     public static final Setting<Integer> UPLOAD_TIME_MOVING_AVERAGE_WINDOW_SIZE = Setting.intSetting(
-        "remote_store.segment.pressure.upload_time_moving_average_window_size",
+        "remote_store.pressure.upload_time_moving_average_window_size",
         Defaults.UPLOAD_TIME_MOVING_AVERAGE_WINDOW_SIZE,
+        Defaults.MOVING_AVERAGE_WINDOW_SIZE_MIN_VALUE,
+        Setting.Property.Dynamic,
+        Setting.Property.NodeScope
+    );
+
+    public static final Setting<Integer> DOWNLOAD_BYTES_MOVING_AVERAGE_WINDOW_SIZE = Setting.intSetting(
+        "remote_store.pressure.download_bytes_moving_average_window_size",
+        Defaults.DOWNLOAD_BYTES_MOVING_AVERAGE_WINDOW_SIZE,
+        Defaults.MOVING_AVERAGE_WINDOW_SIZE_MIN_VALUE,
+        Setting.Property.Dynamic,
+        Setting.Property.NodeScope
+    );
+
+    public static final Setting<Integer> DOWNLOAD_BYTES_PER_SEC_MOVING_AVERAGE_WINDOW_SIZE = Setting.intSetting(
+        "remote_store.pressure.download_bytes_per_sec_moving_average_window_size",
+        Defaults.DOWNLOAD_BYTES_PER_SEC_MOVING_AVERAGE_WINDOW_SIZE,
+        Defaults.MOVING_AVERAGE_WINDOW_SIZE_MIN_VALUE,
+        Setting.Property.Dynamic,
+        Setting.Property.NodeScope
+    );
+
+    public static final Setting<Integer> DOWNLOAD_TIME_MOVING_AVERAGE_WINDOW_SIZE = Setting.intSetting(
+        "remote_store.pressure.download_time_moving_average_window_size",
+        Defaults.DOWNLOAD_TIME_MOVING_AVERAGE_WINDOW_SIZE,
         Defaults.MOVING_AVERAGE_WINDOW_SIZE_MIN_VALUE,
         Setting.Property.Dynamic,
         Setting.Property.NodeScope
@@ -103,10 +130,16 @@ public class RemoteStorePressureSettings {
 
     private volatile int uploadTimeMovingAverageWindowSize;
 
+    private volatile int downloadBytesMovingAverageWindowSize;
+
+    private volatile int downloadBytesPerSecMovingAverageWindowSize;
+
+    private volatile int downloadTimeMovingAverageWindowSize;
+
     public RemoteStorePressureSettings(
         ClusterService clusterService,
         Settings settings,
-        RemoteStorePressureService remoteUploadPressureService
+        RemoteStorePressureService remoteStorePressureService
     ) {
         ClusterSettings clusterSettings = clusterService.getClusterSettings();
 
@@ -125,14 +158,14 @@ public class RemoteStorePressureSettings {
         this.uploadBytesMovingAverageWindowSize = UPLOAD_BYTES_MOVING_AVERAGE_WINDOW_SIZE.get(settings);
         clusterSettings.addSettingsUpdateConsumer(
             UPLOAD_BYTES_MOVING_AVERAGE_WINDOW_SIZE,
-            remoteUploadPressureService::updateUploadBytesMovingAverageWindowSize
+            remoteStorePressureService::updateUploadBytesMovingAverageWindowSize
         );
         clusterSettings.addSettingsUpdateConsumer(UPLOAD_BYTES_MOVING_AVERAGE_WINDOW_SIZE, this::setUploadBytesMovingAverageWindowSize);
 
         this.uploadBytesPerSecMovingAverageWindowSize = UPLOAD_BYTES_PER_SEC_MOVING_AVERAGE_WINDOW_SIZE.get(settings);
         clusterSettings.addSettingsUpdateConsumer(
             UPLOAD_BYTES_PER_SEC_MOVING_AVERAGE_WINDOW_SIZE,
-            remoteUploadPressureService::updateUploadBytesPerSecMovingAverageWindowSize
+            remoteStorePressureService::updateUploadBytesPerSecMovingAverageWindowSize
         );
         clusterSettings.addSettingsUpdateConsumer(
             UPLOAD_BYTES_PER_SEC_MOVING_AVERAGE_WINDOW_SIZE,
@@ -142,9 +175,33 @@ public class RemoteStorePressureSettings {
         this.uploadTimeMovingAverageWindowSize = UPLOAD_TIME_MOVING_AVERAGE_WINDOW_SIZE.get(settings);
         clusterSettings.addSettingsUpdateConsumer(
             UPLOAD_TIME_MOVING_AVERAGE_WINDOW_SIZE,
-            remoteUploadPressureService::updateUploadTimeMsMovingAverageWindowSize
+            remoteStorePressureService::updateUploadTimeMsMovingAverageWindowSize
         );
         clusterSettings.addSettingsUpdateConsumer(UPLOAD_TIME_MOVING_AVERAGE_WINDOW_SIZE, this::setUploadTimeMovingAverageWindowSize);
+
+        this.downloadBytesMovingAverageWindowSize = DOWNLOAD_BYTES_MOVING_AVERAGE_WINDOW_SIZE.get(settings);
+        clusterSettings.addSettingsUpdateConsumer(
+            DOWNLOAD_BYTES_MOVING_AVERAGE_WINDOW_SIZE,
+            remoteStorePressureService::updateDownloadBytesMovingAverageWindowSize
+        );
+        clusterSettings.addSettingsUpdateConsumer(DOWNLOAD_BYTES_MOVING_AVERAGE_WINDOW_SIZE, this::setDownloadBytesMovingAverageWindowSize);
+
+        this.downloadBytesPerSecMovingAverageWindowSize = DOWNLOAD_BYTES_PER_SEC_MOVING_AVERAGE_WINDOW_SIZE.get(settings);
+        clusterSettings.addSettingsUpdateConsumer(
+            DOWNLOAD_BYTES_PER_SEC_MOVING_AVERAGE_WINDOW_SIZE,
+            remoteStorePressureService::updateDownloadBytesPerSecMovingAverageWindowSize
+        );
+        clusterSettings.addSettingsUpdateConsumer(
+            DOWNLOAD_BYTES_PER_SEC_MOVING_AVERAGE_WINDOW_SIZE,
+            this::setDownloadBytesPerSecMovingAverageWindowSize
+        );
+
+        this.downloadTimeMovingAverageWindowSize = DOWNLOAD_TIME_MOVING_AVERAGE_WINDOW_SIZE.get(settings);
+        clusterSettings.addSettingsUpdateConsumer(
+            DOWNLOAD_TIME_MOVING_AVERAGE_WINDOW_SIZE,
+            remoteStorePressureService::updateDownloadTimeMsMovingAverageWindowSize
+        );
+        clusterSettings.addSettingsUpdateConsumer(DOWNLOAD_TIME_MOVING_AVERAGE_WINDOW_SIZE, this::setDownloadTimeMovingAverageWindowSize);
     }
 
     public boolean isRemoteRefreshSegmentPressureEnabled() {
@@ -209,5 +266,29 @@ public class RemoteStorePressureSettings {
 
     public void setUploadTimeMovingAverageWindowSize(int uploadTimeMovingAverageWindowSize) {
         this.uploadTimeMovingAverageWindowSize = uploadTimeMovingAverageWindowSize;
+    }
+
+    public int getDownloadBytesMovingAverageWindowSize() {
+        return downloadBytesMovingAverageWindowSize;
+    }
+
+    public void setDownloadBytesMovingAverageWindowSize(int downloadBytesMovingAverageWindowSize) {
+        this.downloadBytesMovingAverageWindowSize = downloadBytesMovingAverageWindowSize;
+    }
+
+    public int getDownloadBytesPerSecMovingAverageWindowSize() {
+        return downloadBytesPerSecMovingAverageWindowSize;
+    }
+
+    public void setDownloadBytesPerSecMovingAverageWindowSize(int downloadBytesPerSecMovingAverageWindowSize) {
+        this.downloadBytesPerSecMovingAverageWindowSize = downloadBytesPerSecMovingAverageWindowSize;
+    }
+
+    public int getDownloadTimeMovingAverageWindowSize() {
+        return downloadTimeMovingAverageWindowSize;
+    }
+
+    public void setDownloadTimeMovingAverageWindowSize(int downloadTimeMovingAverageWindowSize) {
+        this.downloadTimeMovingAverageWindowSize = downloadTimeMovingAverageWindowSize;
     }
 }

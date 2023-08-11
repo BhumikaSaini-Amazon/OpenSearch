@@ -60,6 +60,7 @@ import org.opensearch.common.CheckedConsumer;
 import org.opensearch.common.CheckedFunction;
 import org.opensearch.common.CheckedSupplier;
 import org.opensearch.common.Nullable;
+import org.opensearch.common.SetOnce;
 import org.opensearch.core.common.breaker.CircuitBreaker;
 import org.opensearch.core.common.bytes.BytesReference;
 import org.opensearch.common.lifecycle.AbstractLifecycleComponent;
@@ -82,6 +83,7 @@ import org.opensearch.common.util.concurrent.OpenSearchThreadPoolExecutor;
 import org.opensearch.common.util.iterable.Iterables;
 import org.opensearch.common.util.set.Sets;
 import org.opensearch.common.xcontent.LoggingDeprecationHandler;
+import org.opensearch.common.xcontent.XContentType;
 import org.opensearch.common.util.io.IOUtils;
 import org.opensearch.common.lease.Releasable;
 import org.opensearch.core.concurrency.OpenSearchRejectedExecutionException;
@@ -319,6 +321,7 @@ public class IndicesService extends AbstractLifecycleComponent
     private final BiFunction<IndexSettings, ShardRouting, TranslogFactory> translogFactorySupplier;
 
     private final FileCacheCleaner fileCacheCleaner;
+    private static final SetOnce<RemoteStorePressureService> pressureServiceSetOnce = new SetOnce<>();
 
     @Override
     protected void doStart() {
@@ -450,7 +453,8 @@ public class IndicesService extends AbstractLifecycleComponent
                 return new RemoteBlobStoreInternalTranslogFactory(
                     repositoriesServiceSupplier,
                     threadPool,
-                    indexSettings.getRemoteStoreTranslogRepository()
+                    indexSettings.getRemoteStoreTranslogRepository(),
+                    pressureServiceSetOnce.get().getRemoteTranslogTracker(shardRouting.shardId())
                 );
             }
             return new InternalTranslogFactory();
@@ -949,7 +953,7 @@ public class IndicesService extends AbstractLifecycleComponent
                 .indices()
                 .preparePutMapping()
                 .setConcreteIndex(shardRouting.index()) // concrete index - no name clash, it uses uuid
-                .setSource(mapping.source().string(), MediaTypeRegistry.JSON)
+                .setSource(mapping.source().string(), XContentType.JSON)
                 .get();
         }, this);
         return indexShard;
@@ -1857,5 +1861,9 @@ public class IndicesService extends AbstractLifecycleComponent
     public boolean allPendingDanglingIndicesWritten() {
         return nodeWriteDanglingIndicesInfo == false
             || (danglingIndicesToWrite.isEmpty() && danglingIndicesThreadPoolExecutor.getActiveCount() == 0);
+    }
+
+    public void setPressureService(RemoteStorePressureService pressureService) {
+        pressureServiceSetOnce.trySet(pressureService);
     }
 }
