@@ -60,6 +60,7 @@ import org.opensearch.common.CheckedConsumer;
 import org.opensearch.common.CheckedFunction;
 import org.opensearch.common.CheckedSupplier;
 import org.opensearch.common.Nullable;
+import org.opensearch.common.SetOnce;
 import org.opensearch.common.io.stream.BytesStreamOutput;
 import org.opensearch.common.lease.Releasable;
 import org.opensearch.common.lifecycle.AbstractLifecycleComponent;
@@ -350,6 +351,7 @@ public class IndicesService extends AbstractLifecycleComponent
     private final BiFunction<IndexSettings, ShardRouting, TranslogFactory> translogFactorySupplier;
     private volatile TimeValue clusterDefaultRefreshInterval;
     private final FileCacheCleaner fileCacheCleaner;
+    private static final SetOnce<RemoteStorePressureService> pressureServiceSetOnce = new SetOnce<>();
 
     @Override
     protected void doStart() {
@@ -500,7 +502,8 @@ public class IndicesService extends AbstractLifecycleComponent
                 return new RemoteBlobStoreInternalTranslogFactory(
                     repositoriesServiceSupplier,
                     threadPool,
-                    indexSettings.getRemoteStoreTranslogRepository()
+                    indexSettings.getRemoteStoreTranslogRepository(),
+                    pressureServiceSetOnce.get().getRemoteTranslogTracker(shardRouting.shardId())
                 );
             }
             return new InternalTranslogFactory();
@@ -1980,5 +1983,14 @@ public class IndicesService extends AbstractLifecycleComponent
 
     private TimeValue getClusterDefaultRefreshInterval() {
         return this.clusterDefaultRefreshInterval;
+    }
+
+    public void setPressureService(RemoteStorePressureService pressureService) {
+        pressureServiceSetOnce.trySet(pressureService);
+    }
+
+    // visible for testing
+    public RemoteStorePressureService getPressureService() {
+        return pressureServiceSetOnce.get();
     }
 }

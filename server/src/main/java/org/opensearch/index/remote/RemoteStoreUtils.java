@@ -8,7 +8,11 @@
 
 package org.opensearch.index.remote;
 
+import org.opensearch.index.translog.transfer.FileSnapshot;
+
+import java.io.IOException;
 import java.util.Arrays;
+import java.util.Set;
 
 /**
  * Utils for remote store
@@ -68,5 +72,15 @@ public class RemoteStoreUtils {
         }
 
         return filename.substring(0, endIdx);
+    }
+
+    public static long getTotalBytes(Set<FileSnapshot.TransferFileSnapshot> files) {
+        return files.stream().map(blob -> {
+            try {
+                return blob.getContentLength();
+            } catch (IOException ignored) {
+                return 0L;
+            }
+        }).reduce(0L, Long::sum);
     }
 }
