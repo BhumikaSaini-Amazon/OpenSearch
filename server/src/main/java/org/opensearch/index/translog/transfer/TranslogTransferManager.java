@@ -108,6 +108,7 @@ public class TranslogTransferManager {
         try {
             if (toUpload.isEmpty()) {
                 logger.trace("Nothing to upload for transfer");
+                translogTransferListener.onUploadComplete(transferSnapshot);
                 return true;
             }
 
@@ -200,7 +201,7 @@ public class TranslogTransferManager {
         // Mark in FileTransferTracker so that the same files are not uploaded at the time of translog sync
         fileTransferTracker.add(fileName, true);
         remoteTranslogTrackerSetOnce.get().addDownloadBytesSucceeded(bytesToRead);
-        remoteTranslogTrackerSetOnce.get().addTotalDownloadsSucceeded(1);
+        remoteTranslogTrackerSetOnce.get().addDownloadsSucceeded(1);
     }
 
     public TranslogTransferMetadata readMetadata() throws IOException {
@@ -212,9 +213,11 @@ public class TranslogTransferManager {
                 if (blobMetadataList.isEmpty()) return;
                 String filename = blobMetadataList.get(0).name();
                 try (InputStream inputStream = transferService.downloadBlob(remoteMetadataTransferPath, filename)) {
+                    long bytesToRead = inputStream.available();
                     IndexInput indexInput = new ByteArrayIndexInput("metadata file", inputStream.readAllBytes());
                     metadataSetOnce.set(metadataStreamWrapper.readStream(indexInput));
-                    remoteTranslogTrackerSetOnce.get().addDownloadBytesSucceeded(indexInput.length());
+                    remoteTranslogTrackerSetOnce.get().addDownloadBytesSucceeded(bytesToRead);
+                    remoteTranslogTrackerSetOnce.get().addDownloadsSucceeded(1);
                 } catch (IOException e) {
                     logger.error(() -> new ParameterizedMessage("Exception while reading metadata file: {}", filename), e);
                     exceptionSetOnce.set(e);

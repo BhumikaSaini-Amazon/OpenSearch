@@ -343,7 +343,7 @@ public class RemoteTranslogTracker {
         return totalDownloadsSucceeded.get();
     }
 
-    public void addTotalDownloadsSucceeded(long count) {
+    public void addDownloadsSucceeded(long count) {
         totalDownloadsSucceeded.addAndGet(count);
     }
 
