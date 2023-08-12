@@ -76,6 +76,7 @@ public class RemoteStorePressureServiceTests extends OpenSearchTestCase {
         pressureService = new RemoteStorePressureService(clusterService, Settings.EMPTY);
         pressureService.afterIndexShardCreated(indexShard);
         assertNotNull(pressureService.getRemoteRefreshSegmentTracker(indexShard.shardId()));
+        assertNotNull(pressureService.getRemoteTranslogTracker(indexShard.shardId()));
     }
 
     public void testAfterIndexShardCreatedForNonRemoteBackedIndex() {
@@ -83,6 +84,7 @@ public class RemoteStorePressureServiceTests extends OpenSearchTestCase {
         pressureService = new RemoteStorePressureService(clusterService, Settings.EMPTY);
         pressureService.afterIndexShardCreated(indexShard);
         assertNull(pressureService.getRemoteRefreshSegmentTracker(indexShard.shardId()));
+        assertNull(pressureService.getRemoteTranslogTracker(indexShard.shardId()));
     }
 
     public void testAfterIndexShardClosed() {
@@ -90,9 +92,11 @@ public class RemoteStorePressureServiceTests extends OpenSearchTestCase {
         pressureService = new RemoteStorePressureService(clusterService, Settings.EMPTY);
         pressureService.afterIndexShardCreated(indexShard);
         assertNotNull(pressureService.getRemoteRefreshSegmentTracker(shardId));
+        assertNotNull(pressureService.getRemoteTranslogTracker(shardId));
 
         pressureService.afterIndexShardClosed(shardId, indexShard, indexShard.indexSettings().getSettings());
         assertNull(pressureService.getRemoteRefreshSegmentTracker(shardId));
+        assertNull(pressureService.getRemoteTranslogTracker(shardId));
     }
 
     public void testValidateSegmentUploadLag() {

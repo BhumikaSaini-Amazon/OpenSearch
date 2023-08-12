@@ -131,6 +131,11 @@ public class RemoteFsTranslog extends Translog {
         }
     }
 
+    // visible for testing
+    public RemoteTranslogTracker getRemoteTranslogTracker() {
+        return remoteTranslogTracker;
+    }
+
     public static void download(Repository repository, ShardId shardId, ThreadPool threadPool, Path location, Logger logger)
         throws IOException {
         assert repository instanceof BlobStoreRepository : String.format(
@@ -156,12 +161,11 @@ public class RemoteFsTranslog extends Translog {
 
     public static void download(TranslogTransferManager translogTransferManager, Path location, Logger logger) throws IOException {
         logger.trace("Downloading translog files from remote");
+        RemoteTranslogTracker statsTracker = translogTransferManager.getRemoteTranslogTracker();
+        long bytesBefore = statsTracker.getDownloadBytesSucceeded();
+        long downloadStartTime = RemoteStoreUtils.getCurrentSystemNanoTime();
         TranslogTransferMetadata translogMetadata = translogTransferManager.readMetadata();
         if (translogMetadata != null) {
-            RemoteTranslogTracker statsTracker = translogTransferManager.getRemoteTranslogTracker();
-            statsTracker.addTotalDownloadsSucceeded(1);
-            long bytesBefore = statsTracker.getDownloadBytesSucceeded();
-            long downloadStartTime = RemoteStoreUtils.getCurrentSystemNanoTime();
             if (Files.notExists(location)) {
                 Files.createDirectories(location);
             }
@@ -181,7 +185,11 @@ public class RemoteFsTranslog extends Translog {
             long downloadEndTimeMs = System.currentTimeMillis();
             long durationInMillis = (downloadEndTime - downloadStartTime) / 1_000_000L;
             long bytesDownloaded = statsTracker.getDownloadBytesSucceeded() - bytesBefore;
+
             statsTracker.setLastSuccessfulDownloadTimestamp(downloadEndTimeMs);
+            // We update the duration at the end of successfully downloading all of metadata, .tlog, .ckp
+            // files because this is not a file-level metric but a sync-level metric.
+            // This also ensures the bytes per sec moving average can be correlated.
             statsTracker.addDownloadTimeInMillis(durationInMillis);
             statsTracker.updateDownloadBytesMovingAverage(bytesDownloaded);
             statsTracker.updateDownloadTimeMovingAverage(durationInMillis);
@@ -525,17 +533,20 @@ public class RemoteFsTranslog extends Translog {
         @Override
         public void beforeUpload(TransferSnapshot transferSnapshot) throws IOException {
             toUpload = RemoteStoreUtils.getUploadBlobsFromSnapshot(transferSnapshot, fileTransferTracker);
-            uploadBytes = RemoteStoreUtils.getTotalBytes(toUpload);
-            uploadStartTime = RemoteStoreUtils.getCurrentSystemNanoTime();
-
-            captureStatsBeforeUpload();
+            if (toUpload.size() > 0) {
+                uploadBytes = RemoteStoreUtils.getTotalBytes(toUpload);
+                captureStatsBeforeUpload();
+                uploadStartTime = RemoteStoreUtils.getCurrentSystemNanoTime();
+            }
         }
 
         @Override
         public void onUploadComplete(TransferSnapshot transferSnapshot) throws IOException {
-            uploadEndTime = RemoteStoreUtils.getCurrentSystemNanoTime();
-            uploadEndTimeMs = System.currentTimeMillis();
-            captureStatsOnUploadSuccess();
+            if (toUpload != null && toUpload.size() > 0) {
+                uploadEndTime = RemoteStoreUtils.getCurrentSystemNanoTime();
+                uploadEndTimeMs = System.currentTimeMillis();
+                captureStatsOnUploadSuccess();
+            }
 
             transferReleasable.close();
             closeFilesIfNoPendingRetentionLocks();
@@ -546,13 +557,13 @@ public class RemoteFsTranslog extends Translog {
 
         @Override
         public void onUploadFailed(TransferSnapshot transferSnapshot, Exception ex) throws IOException {
-            uploadEndTime = RemoteStoreUtils.getCurrentSystemNanoTime();
-            uploadEndTimeMs = System.currentTimeMillis();
-            captureStatsOnUploadFailure();
+            if (toUpload != null && toUpload.size() > 0) {
+                uploadEndTime = RemoteStoreUtils.getCurrentSystemNanoTime();
+                captureStatsOnUploadFailure();
+            }
 
             transferReleasable.close();
             closeFilesIfNoPendingRetentionLocks();
-
             if (ex instanceof IOException) {
                 throw (IOException) ex;
             } else {
