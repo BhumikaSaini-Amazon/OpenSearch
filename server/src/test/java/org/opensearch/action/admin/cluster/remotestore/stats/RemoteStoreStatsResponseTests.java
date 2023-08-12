@@ -25,7 +25,7 @@ import java.util.ArrayList;
 import java.util.Map;
 
 import static org.opensearch.action.admin.cluster.remotestore.stats.RemoteStoreStatsTestHelper.compareStatsResponse;
-import static org.opensearch.action.admin.cluster.remotestore.stats.RemoteStoreStatsTestHelper.createPressureTrackerTranslogStats;
+import static org.opensearch.action.admin.cluster.remotestore.stats.RemoteStoreStatsTestHelper.createTranslogStats;
 import static org.opensearch.action.admin.cluster.remotestore.stats.RemoteStoreStatsTestHelper.createShardRouting;
 import static org.opensearch.action.admin.cluster.remotestore.stats.RemoteStoreStatsTestHelper.createStatsForNewPrimary;
 import static org.opensearch.action.admin.cluster.remotestore.stats.RemoteStoreStatsTestHelper.createStatsForNewReplica;
@@ -51,7 +51,7 @@ public class RemoteStoreStatsResponseTests extends OpenSearchTestCase {
 
     public void testSerializationForPrimary() throws Exception {
         RemoteSegmentTransferTracker.Stats mockPrimaryTrackerStats = createStatsForNewPrimary(shardId);
-        RemoteTranslogTracker.Stats mockTranslogTrackerStats = createPressureTrackerTranslogStats(shardId);
+        RemoteTranslogTracker.Stats mockTranslogTrackerStats = createTranslogStats(shardId);
         ShardRouting primaryShardRouting = createShardRouting(shardId, true);
         RemoteStoreStats primaryShardStats = new RemoteStoreStats(mockPrimaryTrackerStats, mockTranslogTrackerStats, primaryShardRouting);
         RemoteStoreStatsResponse statsResponse = new RemoteStoreStatsResponse(
@@ -82,7 +82,7 @@ public class RemoteStoreStatsResponseTests extends OpenSearchTestCase {
     public void testSerializationForBothPrimaryAndReplica() throws Exception {
         RemoteSegmentTransferTracker.Stats mockPrimaryTrackerStats = createStatsForNewPrimary(shardId);
         RemoteSegmentTransferTracker.Stats mockReplicaTrackerStats = createStatsForNewReplica(shardId);
-        RemoteTranslogTracker.Stats mockTranslogTrackerStats = createPressureTrackerTranslogStats(shardId);
+        RemoteTranslogTracker.Stats mockTranslogTrackerStats = createTranslogStats(shardId);
         ShardRouting primaryShardRouting = createShardRouting(shardId, true);
         ShardRouting replicaShardRouting = createShardRouting(shardId, false);
         RemoteStoreStats primaryShardStats = new RemoteStoreStats(mockPrimaryTrackerStats, mockTranslogTrackerStats, primaryShardRouting);
@@ -123,7 +123,7 @@ public class RemoteStoreStatsResponseTests extends OpenSearchTestCase {
     public void testSerializationForBothRemoteStoreRestoredPrimaryAndReplica() throws Exception {
         RemoteSegmentTransferTracker.Stats mockPrimaryTrackerStats = createStatsForRemoteStoreRestoredPrimary(shardId);
         RemoteSegmentTransferTracker.Stats mockReplicaTrackerStats = createStatsForNewReplica(shardId);
-        RemoteTranslogTracker.Stats mockTranslogTrackerStats = createPressureTrackerTranslogStats(shardId);
+        RemoteTranslogTracker.Stats mockTranslogTrackerStats = createTranslogStats(shardId);
         ShardRouting primaryShardRouting = createShardRouting(shardId, true);
         ShardRouting replicaShardRouting = createShardRouting(shardId, false);
         RemoteStoreStats primaryShardStats = new RemoteStoreStats(mockPrimaryTrackerStats, mockTranslogTrackerStats, primaryShardRouting);

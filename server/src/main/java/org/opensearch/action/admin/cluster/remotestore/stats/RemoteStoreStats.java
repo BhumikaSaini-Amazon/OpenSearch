@@ -86,10 +86,16 @@ public class RemoteStoreStats implements Writeable, ToXContentFragment {
 
         builder.startObject(Fields.TRANSLOG);
         builder.startObject(SubFields.UPLOAD);
-        buildTranslogUploadStats(builder);
+        // Ensuring that we are not showing 0 metrics to the user
+        if (remoteTranslogShardStats.totalUploadsStarted > 0) {
+            buildTranslogUploadStats(builder);
+        }
         builder.endObject(); // translog.upload
         builder.startObject(SubFields.DOWNLOAD);
-        buildTranslogDownloadStats(builder);
+        // Ensuring that we are not showing 0 metrics to the user
+        if (remoteTranslogShardStats.totalDownloadsSucceeded > 0) {
+            buildTranslogDownloadStats(builder);
+        }
         builder.endObject(); // translog.download
         builder.endObject(); // translog
 
@@ -291,7 +297,7 @@ public class RemoteStoreStats implements Writeable, ToXContentFragment {
         static final String LAST_SUCCESSFUL_UPLOAD_TIMESTAMP = "last_successful_upload_timestamp";
 
         /**
-         * Number of total uploads to remote store
+         * Count of files uploaded to remote store
          */
         static final String TOTAL_UPLOADS = "total_uploads";
 
@@ -323,7 +329,7 @@ public class RemoteStoreStats implements Writeable, ToXContentFragment {
 
     static final class DownloadStatsFields {
         /**
-         * Epoch timestamp of the last successful download session
+         * Epoch timestamp of the last successful download
          */
         public static final String LAST_SUCCESSFUL_DOWNLOAD_TIMESTAMP = "last_successful_download_timestamp";
 
@@ -333,7 +339,7 @@ public class RemoteStoreStats implements Writeable, ToXContentFragment {
         static final String LAST_SYNC_TIMESTAMP = "last_sync_timestamp";
 
         /**
-         * Count of total remote store download sessions
+         * Count of files downloaded from remote store
          */
         public static final String TOTAL_DOWNLOADS = "total_downloads";
 
@@ -353,18 +359,18 @@ public class RemoteStoreStats implements Writeable, ToXContentFragment {
         static final String DOWNLOAD_SIZE_IN_BYTES = "download_size_in_bytes";
 
         /**
-         * Average speed (in bytes/sec) of a remote store download session
+         * Average speed (in bytes/sec) of a remote store download
          */
         static final String DOWNLOAD_SPEED_IN_BYTES_PER_SEC = "download_speed_in_bytes_per_sec";
 
         /**
-         * Average time spent on a remote store download session
+         * Average time spent on a remote store download
          */
         public static final String DOWNLOAD_TIME_IN_MILLIS = "download_time_in_millis";
     }
 
     /**
-     * Reusable sub fields for {@link Fields}
+     * Reusable sub fields for {@link UploadStatsFields} and {@link DownloadStatsFields}
      */
     static final class SubFields {
         static final String STARTED = "started";
@@ -375,12 +381,12 @@ public class RemoteStoreStats implements Writeable, ToXContentFragment {
         static final String UPLOAD = "upload";
 
         /**
-         * Moving avg over last N values stat for a {@link Fields}
+         * Moving avg over last N values stat
          */
         static final String MOVING_AVG = "moving_avg";
 
         /**
-         * Most recent successful attempt stat for a {@link Fields}
+         * Most recent successful attempt stat
          */
         static final String LAST_SUCCESSFUL = "last_successful";
     }

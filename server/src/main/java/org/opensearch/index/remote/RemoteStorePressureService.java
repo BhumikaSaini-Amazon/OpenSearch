@@ -72,10 +72,10 @@ public class RemoteStorePressureService implements IndexEventListener {
     }
 
     /**
-     * Get {@link  RemoteTranslogTracker} only if the underlying Index has remote translog store enabled.
+     * Get {@link  RemoteTranslogTracker} for the shard
      *
      * @param shardId shard id
-     * @return the tracker if index is remote translog store-backed, else null.
+     * @return The tracker if index is Remote Translog Store-backed, else null.
      */
     public RemoteTranslogTracker getRemoteTranslogTracker(ShardId shardId) {
         return trackerMapRemoteTranslogStore.get(shardId);
@@ -133,16 +133,6 @@ public class RemoteStorePressureService implements IndexEventListener {
      */
     public boolean isSegmentsUploadBackpressureEnabled() {
         return pressureSettings.isRemoteRefreshSegmentPressureEnabled();
-    }
-
-    /**
-     * Check if remote translog backpressure is enabled.
-     *
-     * @return true if enabled, else false.
-     */
-    public boolean isTranslogUploadBackpressureEnabled() {
-        // Note: This is not yet implemented.
-        return false;
     }
 
     /**

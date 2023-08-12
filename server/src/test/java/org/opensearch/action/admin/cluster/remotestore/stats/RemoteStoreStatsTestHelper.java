@@ -18,6 +18,7 @@ import org.opensearch.index.store.DirectoryFileTransferTracker;
 
 import java.util.Map;
 
+import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 import static org.opensearch.test.OpenSearchTestCase.assertEquals;
 import static org.opensearch.test.OpenSearchTestCase.randomAlphaOfLength;
@@ -113,8 +114,12 @@ public class RemoteStoreStatsTestHelper {
         return TestShardRouting.newShardRouting(shardId, randomAlphaOfLength(4), isPrimary, ShardRoutingState.STARTED);
     }
 
-    static RemoteTranslogTracker.Stats createPressureTrackerTranslogStats(ShardId shardId) {
+    static RemoteTranslogTracker.Stats createTranslogStats(ShardId shardId) {
         return new RemoteTranslogTracker.Stats(shardId, 1L, 2L, 3L, 4L, 5L, 6L, 7L, 8L, 9D, 10D, 11D, 1L, 2L, 3L, 4L, 9D, 10D, 11D);
+    }
+
+    static RemoteTranslogTracker.Stats createEmptyTranslogStats(ShardId shardId) {
+        return new RemoteTranslogTracker.Stats(shardId, 0L, 0L, 0L, 0L, 0L, 0L, 0L, 0L, 0D, 0D, 0D, 0L, 0L, 0L, 0L, 0D, 0D, 0D);
     }
 
     static void compareStatsResponse(
@@ -276,85 +281,138 @@ public class RemoteStoreStatsTestHelper {
         }
 
         // Compare Remote Translog Store stats
-        Map<?, ?> tlogStatsObj = (Map<?, ?>) statsObject.get("translog");
-        Map<?, ?> tlogUploadStatsObj = (Map<?, ?>) tlogStatsObj.get("upload");
-        assertEquals(
-            pressureTrackerTranslogStats.lastSuccessfulUploadTimestamp,
-            Long.parseLong(tlogUploadStatsObj.get(RemoteStoreStats.UploadStatsFields.LAST_SUCCESSFUL_UPLOAD_TIMESTAMP).toString())
-        );
+        Map<?, ?> tlogStatsObj = (Map<?, ?>) statsObject.get(RemoteStoreStats.Fields.TRANSLOG);
+        Map<?, ?> tlogUploadStatsObj = (Map<?, ?>) tlogStatsObj.get(RemoteStoreStats.SubFields.UPLOAD);
+        if (pressureTrackerTranslogStats.totalUploadsStarted > 0) {
+            assertEquals(
+                pressureTrackerTranslogStats.lastSuccessfulUploadTimestamp,
+                Long.parseLong(tlogUploadStatsObj.get(RemoteStoreStats.UploadStatsFields.LAST_SUCCESSFUL_UPLOAD_TIMESTAMP).toString())
+            );
 
-        assertEquals(
-            pressureTrackerTranslogStats.totalUploadsStarted,
-            Long.parseLong(
-                ((Map<?, ?>) tlogUploadStatsObj.get(RemoteStoreStats.UploadStatsFields.TOTAL_UPLOADS)).get(
-                    RemoteStoreStats.SubFields.STARTED
-                ).toString()
-            )
-        );
-        assertEquals(
-            pressureTrackerTranslogStats.totalUploadsSucceeded,
-            Long.parseLong(
-                ((Map<?, ?>) tlogUploadStatsObj.get(RemoteStoreStats.UploadStatsFields.TOTAL_UPLOADS)).get(
-                    RemoteStoreStats.SubFields.SUCCEEDED
-                ).toString()
-            )
-        );
-        assertEquals(
-            pressureTrackerTranslogStats.totalUploadsFailed,
-            Long.parseLong(
-                ((Map<?, ?>) tlogUploadStatsObj.get(RemoteStoreStats.UploadStatsFields.TOTAL_UPLOADS)).get(
-                    RemoteStoreStats.SubFields.FAILED
-                ).toString()
-            )
-        );
+            assertEquals(
+                pressureTrackerTranslogStats.totalUploadsStarted,
+                Long.parseLong(
+                    ((Map<?, ?>) tlogUploadStatsObj.get(RemoteStoreStats.UploadStatsFields.TOTAL_UPLOADS)).get(
+                        RemoteStoreStats.SubFields.STARTED
+                    ).toString()
+                )
+            );
+            assertEquals(
+                pressureTrackerTranslogStats.totalUploadsSucceeded,
+                Long.parseLong(
+                    ((Map<?, ?>) tlogUploadStatsObj.get(RemoteStoreStats.UploadStatsFields.TOTAL_UPLOADS)).get(
+                        RemoteStoreStats.SubFields.SUCCEEDED
+                    ).toString()
+                )
+            );
+            assertEquals(
+                pressureTrackerTranslogStats.totalUploadsFailed,
+                Long.parseLong(
+                    ((Map<?, ?>) tlogUploadStatsObj.get(RemoteStoreStats.UploadStatsFields.TOTAL_UPLOADS)).get(
+                        RemoteStoreStats.SubFields.FAILED
+                    ).toString()
+                )
+            );
 
-        assertEquals(
-            pressureTrackerTranslogStats.uploadBytesStarted,
-            Long.parseLong(
-                ((Map<?, ?>) tlogUploadStatsObj.get(RemoteStoreStats.UploadStatsFields.TOTAL_UPLOADS_IN_BYTES)).get(
-                    RemoteStoreStats.SubFields.STARTED
-                ).toString()
-            )
-        );
-        assertEquals(
-            pressureTrackerTranslogStats.uploadBytesSucceeded,
-            Long.parseLong(
-                ((Map<?, ?>) tlogUploadStatsObj.get(RemoteStoreStats.UploadStatsFields.TOTAL_UPLOADS_IN_BYTES)).get(
-                    RemoteStoreStats.SubFields.SUCCEEDED
-                ).toString()
-            )
-        );
-        assertEquals(
-            pressureTrackerTranslogStats.uploadBytesFailed,
-            Long.parseLong(
-                ((Map<?, ?>) tlogUploadStatsObj.get(RemoteStoreStats.UploadStatsFields.TOTAL_UPLOADS_IN_BYTES)).get(
-                    RemoteStoreStats.SubFields.FAILED
-                ).toString()
-            )
-        );
+            assertEquals(
+                pressureTrackerTranslogStats.uploadBytesStarted,
+                Long.parseLong(
+                    ((Map<?, ?>) tlogUploadStatsObj.get(RemoteStoreStats.UploadStatsFields.TOTAL_UPLOADS_IN_BYTES)).get(
+                        RemoteStoreStats.SubFields.STARTED
+                    ).toString()
+                )
+            );
+            assertEquals(
+                pressureTrackerTranslogStats.uploadBytesSucceeded,
+                Long.parseLong(
+                    ((Map<?, ?>) tlogUploadStatsObj.get(RemoteStoreStats.UploadStatsFields.TOTAL_UPLOADS_IN_BYTES)).get(
+                        RemoteStoreStats.SubFields.SUCCEEDED
+                    ).toString()
+                )
+            );
+            assertEquals(
+                pressureTrackerTranslogStats.uploadBytesFailed,
+                Long.parseLong(
+                    ((Map<?, ?>) tlogUploadStatsObj.get(RemoteStoreStats.UploadStatsFields.TOTAL_UPLOADS_IN_BYTES)).get(
+                        RemoteStoreStats.SubFields.FAILED
+                    ).toString()
+                )
+            );
 
-        assertEquals(
-            pressureTrackerTranslogStats.totalUploadTimeInMillis,
-            Long.parseLong(tlogUploadStatsObj.get(RemoteStoreStats.UploadStatsFields.TOTAL_UPLOAD_TIME_IN_MILLIS).toString())
-        );
+            assertEquals(
+                pressureTrackerTranslogStats.totalUploadTimeInMillis,
+                Long.parseLong(tlogUploadStatsObj.get(RemoteStoreStats.UploadStatsFields.TOTAL_UPLOAD_TIME_IN_MILLIS).toString())
+            );
 
-        assertEquals(
-            pressureTrackerTranslogStats.uploadBytesMovingAverage,
-            ((Map<?, ?>) tlogUploadStatsObj.get(RemoteStoreStats.UploadStatsFields.UPLOAD_SIZE_IN_BYTES)).get(
-                RemoteStoreStats.SubFields.MOVING_AVG
-            )
-        );
-        assertEquals(
-            pressureTrackerTranslogStats.uploadBytesPerSecMovingAverage,
-            ((Map<?, ?>) tlogUploadStatsObj.get(RemoteStoreStats.UploadStatsFields.UPLOAD_SPEED_IN_BYTES_PER_SEC)).get(
-                RemoteStoreStats.SubFields.MOVING_AVG
-            )
-        );
-        assertEquals(
-            pressureTrackerTranslogStats.uploadTimeMovingAverage,
-            ((Map<?, ?>) tlogUploadStatsObj.get(RemoteStoreStats.UploadStatsFields.UPLOAD_TIME_IN_MILLIS)).get(
-                RemoteStoreStats.SubFields.MOVING_AVG
-            )
-        );
+            assertEquals(
+                pressureTrackerTranslogStats.uploadBytesMovingAverage,
+                ((Map<?, ?>) tlogUploadStatsObj.get(RemoteStoreStats.UploadStatsFields.UPLOAD_SIZE_IN_BYTES)).get(
+                    RemoteStoreStats.SubFields.MOVING_AVG
+                )
+            );
+            assertEquals(
+                pressureTrackerTranslogStats.uploadBytesPerSecMovingAverage,
+                ((Map<?, ?>) tlogUploadStatsObj.get(RemoteStoreStats.UploadStatsFields.UPLOAD_SPEED_IN_BYTES_PER_SEC)).get(
+                    RemoteStoreStats.SubFields.MOVING_AVG
+                )
+            );
+            assertEquals(
+                pressureTrackerTranslogStats.uploadTimeMovingAverage,
+                ((Map<?, ?>) tlogUploadStatsObj.get(RemoteStoreStats.UploadStatsFields.UPLOAD_TIME_IN_MILLIS)).get(
+                    RemoteStoreStats.SubFields.MOVING_AVG
+                )
+            );
+        } else {
+            assertNull(((Map<?, ?>) tlogUploadStatsObj.get(RemoteStoreStats.UploadStatsFields.TOTAL_UPLOADS)));
+        }
+
+        Map<?, ?> tlogDownloadStatsObj = (Map<?, ?>) tlogStatsObj.get(RemoteStoreStats.SubFields.DOWNLOAD);
+        if (pressureTrackerTranslogStats.totalDownloadsSucceeded > 0) {
+            assertEquals(
+                pressureTrackerTranslogStats.lastSuccessfulDownloadTimestamp,
+                Long.parseLong(tlogDownloadStatsObj.get(RemoteStoreStats.DownloadStatsFields.LAST_SUCCESSFUL_DOWNLOAD_TIMESTAMP).toString())
+            );
+            assertEquals(
+                pressureTrackerTranslogStats.totalDownloadsSucceeded,
+                Long.parseLong(
+                    ((Map<?, ?>) tlogDownloadStatsObj.get(RemoteStoreStats.DownloadStatsFields.TOTAL_DOWNLOADS)).get(
+                        RemoteStoreStats.SubFields.SUCCEEDED
+                    ).toString()
+                )
+            );
+            assertEquals(
+                pressureTrackerTranslogStats.downloadBytesSucceeded,
+                Long.parseLong(
+                    ((Map<?, ?>) tlogDownloadStatsObj.get(RemoteStoreStats.DownloadStatsFields.TOTAL_DOWNLOADS_IN_BYTES)).get(
+                        RemoteStoreStats.SubFields.SUCCEEDED
+                    ).toString()
+                )
+            );
+            assertEquals(
+                pressureTrackerTranslogStats.totalDownloadTimeInMillis,
+                Long.parseLong(tlogDownloadStatsObj.get(RemoteStoreStats.DownloadStatsFields.TOTAL_DOWNLOAD_TIME_IN_MILLIS).toString())
+            );
+
+            assertEquals(
+                pressureTrackerTranslogStats.downloadBytesMovingAverage,
+                ((Map<?, ?>) tlogDownloadStatsObj.get(RemoteStoreStats.DownloadStatsFields.DOWNLOAD_SIZE_IN_BYTES)).get(
+                    RemoteStoreStats.SubFields.MOVING_AVG
+                )
+            );
+            assertEquals(
+                pressureTrackerTranslogStats.downloadBytesPerSecMovingAverage,
+                ((Map<?, ?>) tlogDownloadStatsObj.get(RemoteStoreStats.DownloadStatsFields.DOWNLOAD_SPEED_IN_BYTES_PER_SEC)).get(
+                    RemoteStoreStats.SubFields.MOVING_AVG
+                )
+            );
+            assertEquals(
+                pressureTrackerTranslogStats.downloadTimeMovingAverage,
+                ((Map<?, ?>) tlogDownloadStatsObj.get(RemoteStoreStats.DownloadStatsFields.DOWNLOAD_TIME_IN_MILLIS)).get(
+                    RemoteStoreStats.SubFields.MOVING_AVG
+                )
+            );
+        } else {
+            assertNull(((Map<?, ?>) tlogDownloadStatsObj.get(RemoteStoreStats.DownloadStatsFields.TOTAL_DOWNLOADS_IN_BYTES)));
+        }
     }
 }
