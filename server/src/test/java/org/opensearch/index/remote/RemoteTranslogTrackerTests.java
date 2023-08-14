@@ -422,6 +422,7 @@ public class RemoteTranslogTrackerTests extends OpenSearchTestCase {
 
     private void populateDummyStats() {
         int startedBytesUpload = randomIntBetween(10, 100);
+        int startedUploads = randomIntBetween(6, 10);
 
         tracker.addUploadBytesStarted(startedBytesUpload);
         tracker.addUploadBytesFailed(randomIntBetween(1, startedBytesUpload / 2));
@@ -429,8 +430,8 @@ public class RemoteTranslogTrackerTests extends OpenSearchTestCase {
         tracker.addUploadTimeInMillis(randomIntBetween(10, 100));
         tracker.setLastSuccessfulUploadTimestamp(System.currentTimeMillis() + randomIntBetween(10, 100));
         tracker.addUploadsStarted(randomIntBetween(6, 10));
-        tracker.addUploadsFailed(randomIntBetween(1, 5));
-        tracker.addUploadsSucceeded(randomIntBetween(1, 5));
+        tracker.addUploadsFailed(randomIntBetween(1, startedUploads / 2));
+        tracker.addUploadsSucceeded(randomIntBetween(1, startedUploads / 2));
 
         tracker.addDownloadBytesSucceeded(randomIntBetween(10, 100));
         tracker.addDownloadTimeInMillis(randomIntBetween(10, 100));
