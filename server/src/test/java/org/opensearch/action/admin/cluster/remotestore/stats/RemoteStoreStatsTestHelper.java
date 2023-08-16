@@ -124,8 +124,8 @@ public class RemoteStoreStatsTestHelper {
 
     static void compareStatsResponse(
         Map<String, Object> statsObject,
-        RemoteSegmentTransferTracker.Stats pressureTrackerSegmentStats,
-        RemoteTranslogTracker.Stats pressureTrackerTranslogStats,
+        RemoteSegmentTransferTracker.Stats segmentTransferStats,
+        RemoteTranslogTracker.Stats translogTransferStats,
         ShardRouting routing
     ) {
         // Compare Remote Segment Store stats
@@ -146,135 +146,135 @@ public class RemoteStoreStatsTestHelper {
         Map<String, Object> segmentDownloads = ((Map) segment.get(RemoteStoreStats.SubFields.DOWNLOAD));
         Map<String, Object> segmentUploads = ((Map) segment.get(RemoteStoreStats.SubFields.UPLOAD));
 
-        if (pressureTrackerSegmentStats.directoryFileTransferTrackerStats.transferredBytesStarted != 0) {
+        if (segmentTransferStats.directoryFileTransferTrackerStats.transferredBytesStarted != 0) {
             assertEquals(
                 segmentDownloads.get(RemoteStoreStats.DownloadStatsFields.LAST_SYNC_TIMESTAMP),
-                (int) pressureTrackerSegmentStats.directoryFileTransferTrackerStats.lastTransferTimestampMs
+                (int) segmentTransferStats.directoryFileTransferTrackerStats.lastTransferTimestampMs
             );
             assertEquals(
                 ((Map) segmentDownloads.get(RemoteStoreStats.DownloadStatsFields.TOTAL_DOWNLOADS_IN_BYTES)).get(
                     RemoteStoreStats.SubFields.STARTED
                 ),
-                (int) pressureTrackerSegmentStats.directoryFileTransferTrackerStats.transferredBytesStarted
+                (int) segmentTransferStats.directoryFileTransferTrackerStats.transferredBytesStarted
             );
             assertEquals(
                 ((Map) segmentDownloads.get(RemoteStoreStats.DownloadStatsFields.TOTAL_DOWNLOADS_IN_BYTES)).get(
                     RemoteStoreStats.SubFields.SUCCEEDED
                 ),
-                (int) pressureTrackerSegmentStats.directoryFileTransferTrackerStats.transferredBytesSucceeded
+                (int) segmentTransferStats.directoryFileTransferTrackerStats.transferredBytesSucceeded
             );
             assertEquals(
                 ((Map) segmentDownloads.get(RemoteStoreStats.DownloadStatsFields.TOTAL_DOWNLOADS_IN_BYTES)).get(
                     RemoteStoreStats.SubFields.FAILED
                 ),
-                (int) pressureTrackerSegmentStats.directoryFileTransferTrackerStats.transferredBytesFailed
+                (int) segmentTransferStats.directoryFileTransferTrackerStats.transferredBytesFailed
             );
             assertEquals(
                 ((Map) segmentDownloads.get(RemoteStoreStats.DownloadStatsFields.DOWNLOAD_SIZE_IN_BYTES)).get(
                     RemoteStoreStats.SubFields.LAST_SUCCESSFUL
                 ),
-                (int) pressureTrackerSegmentStats.directoryFileTransferTrackerStats.lastSuccessfulTransferInBytes
+                (int) segmentTransferStats.directoryFileTransferTrackerStats.lastSuccessfulTransferInBytes
             );
             assertEquals(
                 ((Map) segmentDownloads.get(RemoteStoreStats.DownloadStatsFields.DOWNLOAD_SIZE_IN_BYTES)).get(
                     RemoteStoreStats.SubFields.MOVING_AVG
                 ),
-                pressureTrackerSegmentStats.directoryFileTransferTrackerStats.transferredBytesMovingAverage
+                segmentTransferStats.directoryFileTransferTrackerStats.transferredBytesMovingAverage
             );
             assertEquals(
                 ((Map) segmentDownloads.get(RemoteStoreStats.DownloadStatsFields.DOWNLOAD_SPEED_IN_BYTES_PER_SEC)).get(
                     RemoteStoreStats.SubFields.MOVING_AVG
                 ),
-                pressureTrackerSegmentStats.directoryFileTransferTrackerStats.transferredBytesPerSecMovingAverage
+                segmentTransferStats.directoryFileTransferTrackerStats.transferredBytesPerSecMovingAverage
             );
         } else {
             assertTrue(segmentDownloads.isEmpty());
         }
 
-        if (pressureTrackerSegmentStats.totalUploadsStarted != 0) {
+        if (segmentTransferStats.totalUploadsStarted != 0) {
             assertEquals(
                 segmentUploads.get(RemoteStoreStats.UploadStatsFields.LOCAL_REFRESH_TIMESTAMP),
-                (int) pressureTrackerSegmentStats.localRefreshClockTimeMs
+                (int) segmentTransferStats.localRefreshClockTimeMs
             );
             assertEquals(
                 segmentUploads.get(RemoteStoreStats.UploadStatsFields.REMOTE_REFRESH_TIMESTAMP),
-                (int) pressureTrackerSegmentStats.remoteRefreshClockTimeMs
+                (int) segmentTransferStats.remoteRefreshClockTimeMs
             );
             assertEquals(
                 segmentUploads.get(RemoteStoreStats.UploadStatsFields.REFRESH_TIME_LAG_IN_MILLIS),
-                (int) pressureTrackerSegmentStats.refreshTimeLagMs
+                (int) segmentTransferStats.refreshTimeLagMs
             );
             assertEquals(
                 segmentUploads.get(RemoteStoreStats.UploadStatsFields.REFRESH_LAG),
-                (int) (pressureTrackerSegmentStats.localRefreshNumber - pressureTrackerSegmentStats.remoteRefreshNumber)
+                (int) (segmentTransferStats.localRefreshNumber - segmentTransferStats.remoteRefreshNumber)
             );
-            assertEquals(segmentUploads.get(RemoteStoreStats.UploadStatsFields.BYTES_LAG), (int) pressureTrackerSegmentStats.bytesLag);
+            assertEquals(segmentUploads.get(RemoteStoreStats.UploadStatsFields.BYTES_LAG), (int) segmentTransferStats.bytesLag);
 
             assertEquals(
                 segmentUploads.get(RemoteStoreStats.UploadStatsFields.BACKPRESSURE_REJECTION_COUNT),
-                (int) pressureTrackerSegmentStats.rejectionCount
+                (int) segmentTransferStats.rejectionCount
             );
             assertEquals(
                 segmentUploads.get(RemoteStoreStats.UploadStatsFields.CONSECUTIVE_FAILURE_COUNT),
-                (int) pressureTrackerSegmentStats.consecutiveFailuresCount
+                (int) segmentTransferStats.consecutiveFailuresCount
             );
             assertEquals(
                 ((Map) segmentUploads.get(RemoteStoreStats.UploadStatsFields.TOTAL_UPLOADS_IN_BYTES)).get(
                     RemoteStoreStats.SubFields.STARTED
                 ),
-                (int) pressureTrackerSegmentStats.uploadBytesStarted
+                (int) segmentTransferStats.uploadBytesStarted
             );
             assertEquals(
                 ((Map) segmentUploads.get(RemoteStoreStats.UploadStatsFields.TOTAL_UPLOADS_IN_BYTES)).get(
                     RemoteStoreStats.SubFields.SUCCEEDED
                 ),
-                (int) pressureTrackerSegmentStats.uploadBytesSucceeded
+                (int) segmentTransferStats.uploadBytesSucceeded
             );
             assertEquals(
                 ((Map) segmentUploads.get(RemoteStoreStats.UploadStatsFields.TOTAL_UPLOADS_IN_BYTES)).get(
                     RemoteStoreStats.SubFields.FAILED
                 ),
-                (int) pressureTrackerSegmentStats.uploadBytesFailed
+                (int) segmentTransferStats.uploadBytesFailed
             );
             assertEquals(
                 ((Map) segmentUploads.get(RemoteStoreStats.UploadStatsFields.REMOTE_REFRESH_SIZE_IN_BYTES)).get(
                     RemoteStoreStats.SubFields.MOVING_AVG
                 ),
-                pressureTrackerSegmentStats.uploadBytesMovingAverage
+                segmentTransferStats.uploadBytesMovingAverage
             );
             assertEquals(
                 ((Map) segmentUploads.get(RemoteStoreStats.UploadStatsFields.REMOTE_REFRESH_SIZE_IN_BYTES)).get(
                     RemoteStoreStats.SubFields.LAST_SUCCESSFUL
                 ),
-                (int) pressureTrackerSegmentStats.lastSuccessfulRemoteRefreshBytes
+                (int) segmentTransferStats.lastSuccessfulRemoteRefreshBytes
             );
             assertEquals(
                 ((Map) segmentUploads.get(RemoteStoreStats.UploadStatsFields.UPLOAD_SPEED_IN_BYTES_PER_SEC)).get(
                     RemoteStoreStats.SubFields.MOVING_AVG
                 ),
-                pressureTrackerSegmentStats.uploadBytesPerSecMovingAverage
+                segmentTransferStats.uploadBytesPerSecMovingAverage
             );
             assertEquals(
                 ((Map) segmentUploads.get(RemoteStoreStats.UploadStatsFields.TOTAL_SYNCS_TO_REMOTE)).get(
                     RemoteStoreStats.SubFields.STARTED
                 ),
-                (int) pressureTrackerSegmentStats.totalUploadsStarted
+                (int) segmentTransferStats.totalUploadsStarted
             );
             assertEquals(
                 ((Map) segmentUploads.get(RemoteStoreStats.UploadStatsFields.TOTAL_SYNCS_TO_REMOTE)).get(
                     RemoteStoreStats.SubFields.SUCCEEDED
                 ),
-                (int) pressureTrackerSegmentStats.totalUploadsSucceeded
+                (int) segmentTransferStats.totalUploadsSucceeded
             );
             assertEquals(
                 ((Map) segmentUploads.get(RemoteStoreStats.UploadStatsFields.TOTAL_SYNCS_TO_REMOTE)).get(RemoteStoreStats.SubFields.FAILED),
-                (int) pressureTrackerSegmentStats.totalUploadsFailed
+                (int) segmentTransferStats.totalUploadsFailed
             );
             assertEquals(
                 ((Map) segmentUploads.get(RemoteStoreStats.UploadStatsFields.REMOTE_REFRESH_LATENCY_IN_MILLIS)).get(
                     RemoteStoreStats.SubFields.MOVING_AVG
                 ),
-                pressureTrackerSegmentStats.uploadTimeMovingAverage
+                segmentTransferStats.uploadTimeMovingAverage
             );
         } else {
             assertTrue(segmentUploads.isEmpty());
@@ -283,14 +283,14 @@ public class RemoteStoreStatsTestHelper {
         // Compare Remote Translog Store stats
         Map<?, ?> tlogStatsObj = (Map<?, ?>) statsObject.get(RemoteStoreStats.Fields.TRANSLOG);
         Map<?, ?> tlogUploadStatsObj = (Map<?, ?>) tlogStatsObj.get(RemoteStoreStats.SubFields.UPLOAD);
-        if (pressureTrackerTranslogStats.totalUploadsStarted > 0) {
+        if (translogTransferStats.totalUploadsStarted > 0) {
             assertEquals(
-                pressureTrackerTranslogStats.lastSuccessfulUploadTimestamp,
+                translogTransferStats.lastSuccessfulUploadTimestamp,
                 Long.parseLong(tlogUploadStatsObj.get(RemoteStoreStats.UploadStatsFields.LAST_SUCCESSFUL_UPLOAD_TIMESTAMP).toString())
             );
 
             assertEquals(
-                pressureTrackerTranslogStats.totalUploadsStarted,
+                translogTransferStats.totalUploadsStarted,
                 Long.parseLong(
                     ((Map<?, ?>) tlogUploadStatsObj.get(RemoteStoreStats.UploadStatsFields.TOTAL_UPLOADS)).get(
                         RemoteStoreStats.SubFields.STARTED
@@ -298,7 +298,7 @@ public class RemoteStoreStatsTestHelper {
                 )
             );
             assertEquals(
-                pressureTrackerTranslogStats.totalUploadsSucceeded,
+                translogTransferStats.totalUploadsSucceeded,
                 Long.parseLong(
                     ((Map<?, ?>) tlogUploadStatsObj.get(RemoteStoreStats.UploadStatsFields.TOTAL_UPLOADS)).get(
                         RemoteStoreStats.SubFields.SUCCEEDED
@@ -306,7 +306,7 @@ public class RemoteStoreStatsTestHelper {
                 )
             );
             assertEquals(
-                pressureTrackerTranslogStats.totalUploadsFailed,
+                translogTransferStats.totalUploadsFailed,
                 Long.parseLong(
                     ((Map<?, ?>) tlogUploadStatsObj.get(RemoteStoreStats.UploadStatsFields.TOTAL_UPLOADS)).get(
                         RemoteStoreStats.SubFields.FAILED
@@ -315,7 +315,7 @@ public class RemoteStoreStatsTestHelper {
             );
 
             assertEquals(
-                pressureTrackerTranslogStats.uploadBytesStarted,
+                translogTransferStats.uploadBytesStarted,
                 Long.parseLong(
                     ((Map<?, ?>) tlogUploadStatsObj.get(RemoteStoreStats.UploadStatsFields.TOTAL_UPLOADS_IN_BYTES)).get(
                         RemoteStoreStats.SubFields.STARTED
@@ -323,7 +323,7 @@ public class RemoteStoreStatsTestHelper {
                 )
             );
             assertEquals(
-                pressureTrackerTranslogStats.uploadBytesSucceeded,
+                translogTransferStats.uploadBytesSucceeded,
                 Long.parseLong(
                     ((Map<?, ?>) tlogUploadStatsObj.get(RemoteStoreStats.UploadStatsFields.TOTAL_UPLOADS_IN_BYTES)).get(
                         RemoteStoreStats.SubFields.SUCCEEDED
@@ -331,7 +331,7 @@ public class RemoteStoreStatsTestHelper {
                 )
             );
             assertEquals(
-                pressureTrackerTranslogStats.uploadBytesFailed,
+                translogTransferStats.uploadBytesFailed,
                 Long.parseLong(
                     ((Map<?, ?>) tlogUploadStatsObj.get(RemoteStoreStats.UploadStatsFields.TOTAL_UPLOADS_IN_BYTES)).get(
                         RemoteStoreStats.SubFields.FAILED
@@ -340,24 +340,24 @@ public class RemoteStoreStatsTestHelper {
             );
 
             assertEquals(
-                pressureTrackerTranslogStats.totalUploadTimeInMillis,
+                translogTransferStats.totalUploadTimeInMillis,
                 Long.parseLong(tlogUploadStatsObj.get(RemoteStoreStats.UploadStatsFields.TOTAL_UPLOAD_TIME_IN_MILLIS).toString())
             );
 
             assertEquals(
-                pressureTrackerTranslogStats.uploadBytesMovingAverage,
+                translogTransferStats.uploadBytesMovingAverage,
                 ((Map<?, ?>) tlogUploadStatsObj.get(RemoteStoreStats.UploadStatsFields.UPLOAD_SIZE_IN_BYTES)).get(
                     RemoteStoreStats.SubFields.MOVING_AVG
                 )
             );
             assertEquals(
-                pressureTrackerTranslogStats.uploadBytesPerSecMovingAverage,
+                translogTransferStats.uploadBytesPerSecMovingAverage,
                 ((Map<?, ?>) tlogUploadStatsObj.get(RemoteStoreStats.UploadStatsFields.UPLOAD_SPEED_IN_BYTES_PER_SEC)).get(
                     RemoteStoreStats.SubFields.MOVING_AVG
                 )
             );
             assertEquals(
-                pressureTrackerTranslogStats.uploadTimeMovingAverage,
+                translogTransferStats.uploadTimeMovingAverage,
                 ((Map<?, ?>) tlogUploadStatsObj.get(RemoteStoreStats.UploadStatsFields.UPLOAD_TIME_IN_MILLIS)).get(
                     RemoteStoreStats.SubFields.MOVING_AVG
                 )
@@ -367,13 +367,13 @@ public class RemoteStoreStatsTestHelper {
         }
 
         Map<?, ?> tlogDownloadStatsObj = (Map<?, ?>) tlogStatsObj.get(RemoteStoreStats.SubFields.DOWNLOAD);
-        if (pressureTrackerTranslogStats.totalDownloadsSucceeded > 0) {
+        if (translogTransferStats.totalDownloadsSucceeded > 0) {
             assertEquals(
-                pressureTrackerTranslogStats.lastSuccessfulDownloadTimestamp,
+                translogTransferStats.lastSuccessfulDownloadTimestamp,
                 Long.parseLong(tlogDownloadStatsObj.get(RemoteStoreStats.DownloadStatsFields.LAST_SUCCESSFUL_DOWNLOAD_TIMESTAMP).toString())
             );
             assertEquals(
-                pressureTrackerTranslogStats.totalDownloadsSucceeded,
+                translogTransferStats.totalDownloadsSucceeded,
                 Long.parseLong(
                     ((Map<?, ?>) tlogDownloadStatsObj.get(RemoteStoreStats.DownloadStatsFields.TOTAL_DOWNLOADS)).get(
                         RemoteStoreStats.SubFields.SUCCEEDED
@@ -381,7 +381,7 @@ public class RemoteStoreStatsTestHelper {
                 )
             );
             assertEquals(
-                pressureTrackerTranslogStats.downloadBytesSucceeded,
+                translogTransferStats.downloadBytesSucceeded,
                 Long.parseLong(
                     ((Map<?, ?>) tlogDownloadStatsObj.get(RemoteStoreStats.DownloadStatsFields.TOTAL_DOWNLOADS_IN_BYTES)).get(
                         RemoteStoreStats.SubFields.SUCCEEDED
@@ -389,24 +389,24 @@ public class RemoteStoreStatsTestHelper {
                 )
             );
             assertEquals(
-                pressureTrackerTranslogStats.totalDownloadTimeInMillis,
+                translogTransferStats.totalDownloadTimeInMillis,
                 Long.parseLong(tlogDownloadStatsObj.get(RemoteStoreStats.DownloadStatsFields.TOTAL_DOWNLOAD_TIME_IN_MILLIS).toString())
             );
 
             assertEquals(
-                pressureTrackerTranslogStats.downloadBytesMovingAverage,
+                translogTransferStats.downloadBytesMovingAverage,
                 ((Map<?, ?>) tlogDownloadStatsObj.get(RemoteStoreStats.DownloadStatsFields.DOWNLOAD_SIZE_IN_BYTES)).get(
                     RemoteStoreStats.SubFields.MOVING_AVG
                 )
             );
             assertEquals(
-                pressureTrackerTranslogStats.downloadBytesPerSecMovingAverage,
+                translogTransferStats.downloadBytesPerSecMovingAverage,
                 ((Map<?, ?>) tlogDownloadStatsObj.get(RemoteStoreStats.DownloadStatsFields.DOWNLOAD_SPEED_IN_BYTES_PER_SEC)).get(
                     RemoteStoreStats.SubFields.MOVING_AVG
                 )
             );
             assertEquals(
-                pressureTrackerTranslogStats.downloadTimeMovingAverage,
+                translogTransferStats.downloadTimeMovingAverage,
                 ((Map<?, ?>) tlogDownloadStatsObj.get(RemoteStoreStats.DownloadStatsFields.DOWNLOAD_TIME_IN_MILLIS)).get(
                     RemoteStoreStats.SubFields.MOVING_AVG
                 )
