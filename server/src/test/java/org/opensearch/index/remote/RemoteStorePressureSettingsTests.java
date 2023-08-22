@@ -170,8 +170,7 @@ public class RemoteStorePressureSettingsTests extends OpenSearchTestCase {
 
     public void testUpdateTriggeredInRemotePressureServiceOnUpdateSettings() {
 
-        int toUpdateVal1 = 1121, toUpdateVal2 = 1123, toUpdateVal3 = 1125;
-        int toUpdateVal4 = 1127, toUpdateVal5 = 1129, toUpdateVal6 = 1131;
+        int toUpdateVal1 = 1121;
 
         AtomicInteger movingAverageWindowSize = new AtomicInteger();
 

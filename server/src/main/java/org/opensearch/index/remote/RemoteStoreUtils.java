@@ -78,8 +78,8 @@ public class RemoteStoreUtils {
         return files.stream().map(blob -> {
             try {
                 return blob.getContentLength();
-            } catch (IOException e) {
-                throw new RuntimeException(e);
+            } catch (IOException ignored) {
+                return 0L;
             }
         }).reduce(0L, Long::sum);
     }

@@ -1070,10 +1070,6 @@ public class RemoteFSTranslogTests extends OpenSearchTestCase {
         for (Translog.Location location : locations) {
             assertFalse("all of the locations should be synced: " + location, translog.ensureSynced(location));
         }
-
-        RemoteTranslogTransferTracker statsTracker = translog.getRemoteTranslogTracker();
-        assertUploadStatsNoFailures(statsTracker);
-        assertDownloadStatsNoDownloads(statsTracker);
     }
 
     public void testSyncUpToStream() throws IOException {

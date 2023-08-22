@@ -373,7 +373,7 @@ public class RemoteTranslogTransferTrackerTests extends OpenSearchTestCase {
         tracker.addUploadBytesSucceeded(randomIntBetween(1, startedBytesUpload / 2));
         tracker.addUploadTimeInMillis(randomIntBetween(10, 100));
         tracker.setLastSuccessfulUploadTimestamp(System.currentTimeMillis() + randomIntBetween(10, 100));
-        tracker.addUploadsStarted(randomIntBetween(6, 10));
+        tracker.addUploadsStarted(startedUploads);
         tracker.addUploadsFailed(randomIntBetween(1, startedUploads / 2));
         tracker.addUploadsSucceeded(randomIntBetween(1, startedUploads / 2));
 

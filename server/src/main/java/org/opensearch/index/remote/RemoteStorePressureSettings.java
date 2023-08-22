@@ -62,7 +62,7 @@ public class RemoteStorePressureSettings {
     );
 
     public static final Setting<Integer> MOVING_AVERAGE_WINDOW_SIZE = Setting.intSetting(
-        "remote_store.pressure.upload_bytes_moving_average_window_size",
+        "remote_store.pressure.moving_average_window_size",
         Defaults.MOVING_AVERAGE_WINDOW_SIZE,
         Defaults.MOVING_AVERAGE_WINDOW_SIZE_MIN_VALUE,
         Setting.Property.Dynamic,
@@ -80,16 +80,6 @@ public class RemoteStorePressureSettings {
     private volatile int minConsecutiveFailuresLimit;
 
     private volatile int movingAverageWindowSize;
-
-    private volatile int uploadBytesPerSecMovingAverageWindowSize;
-
-    private volatile int uploadTimeMovingAverageWindowSize;
-
-    private volatile int downloadBytesMovingAverageWindowSize;
-
-    private volatile int downloadBytesPerSecMovingAverageWindowSize;
-
-    private volatile int downloadTimeMovingAverageWindowSize;
 
     public RemoteStorePressureSettings(
         ClusterService clusterService,
