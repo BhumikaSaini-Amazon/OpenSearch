@@ -42,7 +42,8 @@ public class RemoteStorePressureService implements IndexEventListener {
     /**
      * Keeps map of remote-backed index shards and their corresponding backpressure tracker.
      */
-    private static final Map<ShardId, RemoteTranslogTracker> trackerMapRemoteTranslogStore = ConcurrentCollections.newConcurrentMap();
+    private static final Map<ShardId, RemoteTranslogTransferTracker> trackerMapRemoteTranslogStore = ConcurrentCollections
+        .newConcurrentMap();
 
     /**
      * Remote refresh segment pressure settings which is used for creation of the backpressure tracker and as well as rejection.
@@ -72,12 +73,12 @@ public class RemoteStorePressureService implements IndexEventListener {
     }
 
     /**
-     * Get {@link  RemoteTranslogTracker} for the shard
+     * Get {@link  RemoteTranslogTransferTracker} for the shard
      *
      * @param shardId shard id
      * @return The tracker if index is Remote Translog Store-backed, else null.
      */
-    public RemoteTranslogTracker getRemoteTranslogTracker(ShardId shardId) {
+    public RemoteTranslogTransferTracker getRemoteTranslogTracker(ShardId shardId) {
         return trackerMapRemoteTranslogStore.get(shardId);
     }
 
@@ -92,25 +93,15 @@ public class RemoteStorePressureService implements IndexEventListener {
             new RemoteSegmentTransferTracker(
                 shardId,
                 indexShard.store().getDirectoryFileTransferTracker(),
-                pressureSettings.getUploadBytesMovingAverageWindowSize(),
-                pressureSettings.getUploadBytesPerSecMovingAverageWindowSize(),
-                pressureSettings.getUploadTimeMovingAverageWindowSize()
+                pressureSettings.getMovingAverageWindowSize()
             )
         );
         logger.trace("Created RemoteRefreshSegmentTracker for shardId={}", shardId);
         trackerMapRemoteTranslogStore.put(
             shardId,
-            new RemoteTranslogTracker(
-                shardId,
-                pressureSettings.getUploadBytesMovingAverageWindowSize(),
-                pressureSettings.getUploadBytesPerSecMovingAverageWindowSize(),
-                pressureSettings.getUploadTimeMovingAverageWindowSize(),
-                pressureSettings.getDownloadBytesMovingAverageWindowSize(),
-                pressureSettings.getDownloadBytesPerSecMovingAverageWindowSize(),
-                pressureSettings.getDownloadTimeMovingAverageWindowSize()
-            )
+            new RemoteTranslogTransferTracker(shardId, pressureSettings.getMovingAverageWindowSize())
         );
-        logger.trace("Created RemoteTranslogTracker for shardId={}", shardId);
+        logger.trace("Created RemoteTranslogTransferTracker for shardId={}", shardId);
     }
 
     @Override
@@ -120,9 +111,9 @@ public class RemoteStorePressureService implements IndexEventListener {
             logger.trace("Deleted RemoteSegmentTransferTracker for shardId={}", shardId);
         }
 
-        RemoteTranslogTracker remoteTranslogTracker = trackerMapRemoteTranslogStore.remove(shardId);
-        if (remoteTranslogTracker != null) {
-            logger.trace("Deleted RemoteTranslogTracker for shardId={}", shardId);
+        RemoteTranslogTransferTracker remoteTranslogTransferTracker = trackerMapRemoteTranslogStore.remove(shardId);
+        if (remoteTranslogTransferTracker != null) {
+            logger.trace("Deleted RemoteTranslogTransferTracker for shardId={}", shardId);
         }
     }
 
@@ -156,41 +147,16 @@ public class RemoteStorePressureService implements IndexEventListener {
         }
     }
 
-    void updateUploadBytesMovingAverageWindowSize(int updatedSize) {
-        updateMovingAverageWindowSizeSegmentStats(RemoteSegmentTransferTracker::updateUploadBytesMovingAverageWindowSize, updatedSize);
-        updateMovingAverageWindowSizeTranslogStats(RemoteTranslogTracker::updateUploadBytesMovingAverageWindowSize, updatedSize);
-    }
-
-    void updateUploadBytesPerSecMovingAverageWindowSize(int updatedSize) {
-        updateMovingAverageWindowSizeSegmentStats(
-            RemoteSegmentTransferTracker::updateUploadBytesPerSecMovingAverageWindowSize,
-            updatedSize
-        );
-        updateMovingAverageWindowSizeTranslogStats(RemoteTranslogTracker::updateUploadBytesPerSecMovingAverageWindowSize, updatedSize);
-    }
-
-    void updateUploadTimeMsMovingAverageWindowSize(int updatedSize) {
-        updateMovingAverageWindowSizeSegmentStats(RemoteSegmentTransferTracker::updateUploadTimeMsMovingAverageWindowSize, updatedSize);
-        updateMovingAverageWindowSizeTranslogStats(RemoteTranslogTracker::updateUploadTimeMsMovingAverageWindowSize, updatedSize);
-    }
-
-    void updateDownloadBytesMovingAverageWindowSize(int updatedSize) {
-        updateMovingAverageWindowSizeTranslogStats(RemoteTranslogTracker::updateDownloadBytesMovingAverageWindowSize, updatedSize);
-    }
-
-    void updateDownloadBytesPerSecMovingAverageWindowSize(int updatedSize) {
-        updateMovingAverageWindowSizeTranslogStats(RemoteTranslogTracker::updateDownloadBytesPerSecMovingAverageWindowSize, updatedSize);
-    }
-
-    void updateDownloadTimeMsMovingAverageWindowSize(int updatedSize) {
-        updateMovingAverageWindowSizeTranslogStats(RemoteTranslogTracker::updateDownloadTimeMsMovingAverageWindowSize, updatedSize);
+    void updateMovingAverageWindowSize(int updatedSize) {
+        updateMovingAverageWindowSizeSegmentStats(RemoteSegmentTransferTracker::updateMovingAverageWindowSize, updatedSize);
+        updateMovingAverageWindowSizeTranslogStats(RemoteTranslogTransferTracker::updateMovingAverageWindowSize, updatedSize);
     }
 
     void updateMovingAverageWindowSizeSegmentStats(BiConsumer<RemoteSegmentTransferTracker, Integer> biConsumer, int updatedSize) {
         trackerMapRemoteSegmentStore.values().forEach(tracker -> biConsumer.accept(tracker, updatedSize));
     }
 
-    void updateMovingAverageWindowSizeTranslogStats(BiConsumer<RemoteTranslogTracker, Integer> biConsumer, int updatedSize) {
+    void updateMovingAverageWindowSizeTranslogStats(BiConsumer<RemoteTranslogTransferTracker, Integer> biConsumer, int updatedSize) {
         trackerMapRemoteTranslogStore.values().forEach(tracker -> biConsumer.accept(tracker, updatedSize));
     }
 

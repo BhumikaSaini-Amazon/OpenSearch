@@ -13,7 +13,7 @@ import org.opensearch.cluster.routing.ShardRoutingState;
 import org.opensearch.cluster.routing.TestShardRouting;
 import org.opensearch.index.remote.RemoteSegmentTransferTracker;
 import org.opensearch.core.index.shard.ShardId;
-import org.opensearch.index.remote.RemoteTranslogTracker;
+import org.opensearch.index.remote.RemoteTranslogTransferTracker;
 import org.opensearch.index.store.DirectoryFileTransferTracker;
 
 import java.util.Map;
@@ -114,18 +114,18 @@ public class RemoteStoreStatsTestHelper {
         return TestShardRouting.newShardRouting(shardId, randomAlphaOfLength(4), isPrimary, ShardRoutingState.STARTED);
     }
 
-    static RemoteTranslogTracker.Stats createTranslogStats(ShardId shardId) {
-        return new RemoteTranslogTracker.Stats(shardId, 1L, 2L, 3L, 4L, 5L, 6L, 7L, 8L, 9D, 10D, 11D, 1L, 2L, 3L, 4L, 9D, 10D, 11D);
+    static RemoteTranslogTransferTracker.Stats createTranslogStats(ShardId shardId) {
+        return new RemoteTranslogTransferTracker.Stats(shardId, 1L, 2L, 3L, 4L, 5L, 6L, 7L, 8L, 9D, 10D, 11D, 1L, 2L, 3L, 4L, 9D, 10D, 11D);
     }
 
-    static RemoteTranslogTracker.Stats createEmptyTranslogStats(ShardId shardId) {
-        return new RemoteTranslogTracker.Stats(shardId, 0L, 0L, 0L, 0L, 0L, 0L, 0L, 0L, 0D, 0D, 0D, 0L, 0L, 0L, 0L, 0D, 0D, 0D);
+    static RemoteTranslogTransferTracker.Stats createEmptyTranslogStats(ShardId shardId) {
+        return new RemoteTranslogTransferTracker.Stats(shardId, 0L, 0L, 0L, 0L, 0L, 0L, 0L, 0L, 0D, 0D, 0D, 0L, 0L, 0L, 0L, 0D, 0D, 0D);
     }
 
     static void compareStatsResponse(
         Map<String, Object> statsObject,
         RemoteSegmentTransferTracker.Stats segmentTransferStats,
-        RemoteTranslogTracker.Stats translogTransferStats,
+        RemoteTranslogTransferTracker.Stats translogTransferStats,
         ShardRouting routing
     ) {
         // Compare Remote Segment Store stats

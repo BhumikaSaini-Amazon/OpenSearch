@@ -21,8 +21,10 @@ import java.util.concurrent.atomic.AtomicReference;
 
 /**
  * Stores Remote Translog Store-related stats for a given IndexShard.
+ *
+ * @opensearch.internal
  */
-public class RemoteTranslogTracker {
+public class RemoteTranslogTransferTracker {
     /**
      * The shard that this tracker is associated with
      */
@@ -154,15 +156,7 @@ public class RemoteTranslogTracker {
      */
     private final Object downloadTimeMsMutex;
 
-    public RemoteTranslogTracker(
-        ShardId shardId,
-        int uploadBytesMovingAverageWindowSize,
-        int uploadBytesPerSecMovingAverageWindowSize,
-        int uploadTimeMsMovingAverageWindowSize,
-        int downloadBytesMovingAverageWindowSize,
-        int downloadBytesPerSecMovingAverageWindowSize,
-        int downloadTimeMsMovingAverageWindowSize
-    ) {
+    public RemoteTranslogTransferTracker(ShardId shardId, int movingAverageWindowSize) {
         this.shardId = shardId;
 
         this.lastSuccessfulUploadTimestamp = new AtomicLong(0);
@@ -174,22 +168,22 @@ public class RemoteTranslogTracker {
         this.uploadBytesSucceeded = new AtomicLong(0);
         this.totalUploadTimeInMillis = new AtomicLong(0);
         uploadBytesMutex = new Object();
-        uploadBytesMovingAverageReference = new AtomicReference<>(new MovingAverage(uploadBytesMovingAverageWindowSize));
+        uploadBytesMovingAverageReference = new AtomicReference<>(new MovingAverage(movingAverageWindowSize));
         uploadBytesPerSecMutex = new Object();
-        uploadBytesPerSecMovingAverageReference = new AtomicReference<>(new MovingAverage(uploadBytesPerSecMovingAverageWindowSize));
+        uploadBytesPerSecMovingAverageReference = new AtomicReference<>(new MovingAverage(movingAverageWindowSize));
         uploadTimeMsMutex = new Object();
-        uploadTimeMsMovingAverageReference = new AtomicReference<>(new MovingAverage(uploadTimeMsMovingAverageWindowSize));
+        uploadTimeMsMovingAverageReference = new AtomicReference<>(new MovingAverage(movingAverageWindowSize));
 
         this.lastSuccessfulDownloadTimestamp = new AtomicLong(0);
         this.totalDownloadsSucceeded = new AtomicLong(0);
         this.downloadBytesSucceeded = new AtomicLong(0);
         this.totalDownloadTimeInMillis = new AtomicLong(0);
         downloadBytesMutex = new Object();
-        downloadBytesMovingAverageReference = new AtomicReference<>(new MovingAverage(downloadBytesMovingAverageWindowSize));
+        downloadBytesMovingAverageReference = new AtomicReference<>(new MovingAverage(movingAverageWindowSize));
         downloadBytesPerSecMutex = new Object();
-        downloadBytesPerSecMovingAverageReference = new AtomicReference<>(new MovingAverage(downloadBytesPerSecMovingAverageWindowSize));
+        downloadBytesPerSecMovingAverageReference = new AtomicReference<>(new MovingAverage(movingAverageWindowSize));
         downloadTimeMsMutex = new Object();
-        downloadTimeMsMovingAverageReference = new AtomicReference<>(new MovingAverage(downloadTimeMsMovingAverageWindowSize));
+        downloadTimeMsMovingAverageReference = new AtomicReference<>(new MovingAverage(movingAverageWindowSize));
     }
 
     public long getTotalUploadsStarted() {
@@ -307,35 +301,35 @@ public class RemoteTranslogTracker {
     }
 
     /**
-     * Updates the window size for data collection of upload bytes. This also resets any data collected so far.
+     * Updates the window size for data collection. This also resets any data collected so far.
      *
      * @param updatedSize the updated size
      */
-    void updateUploadBytesMovingAverageWindowSize(int updatedSize) {
+    void updateMovingAverageWindowSize(int updatedSize) {
         synchronized (uploadBytesMutex) {
             this.uploadBytesMovingAverageReference.set(this.uploadBytesMovingAverageReference.get().copyWithSize(updatedSize));
         }
-    }
 
-    /**
-     * Updates the window size for data collection of upload bytes per second. This also resets any data collected so far.
-     *
-     * @param updatedSize the updated size
-     */
-    void updateUploadBytesPerSecMovingAverageWindowSize(int updatedSize) {
         synchronized (uploadBytesPerSecMutex) {
             this.uploadBytesPerSecMovingAverageReference.set(this.uploadBytesPerSecMovingAverageReference.get().copyWithSize(updatedSize));
         }
-    }
 
-    /**
-     * Updates the window size for data collection of upload time (ms). This also resets any data collected so far.
-     *
-     * @param updatedSize the updated size
-     */
-    void updateUploadTimeMsMovingAverageWindowSize(int updatedSize) {
         synchronized (uploadTimeMsMutex) {
             this.uploadTimeMsMovingAverageReference.set(this.uploadTimeMsMovingAverageReference.get().copyWithSize(updatedSize));
+        }
+
+        synchronized (downloadBytesMutex) {
+            this.downloadBytesMovingAverageReference.set(this.downloadBytesMovingAverageReference.get().copyWithSize(updatedSize));
+        }
+
+        synchronized (downloadBytesPerSecMutex) {
+            this.downloadBytesPerSecMovingAverageReference.set(
+                this.downloadBytesPerSecMovingAverageReference.get().copyWithSize(updatedSize)
+            );
+        }
+
+        synchronized (downloadTimeMsMutex) {
+            this.downloadTimeMsMovingAverageReference.set(this.downloadTimeMsMovingAverageReference.get().copyWithSize(updatedSize));
         }
     }
 
@@ -413,38 +407,22 @@ public class RemoteTranslogTracker {
         }
     }
 
-    /**
-     * Updates the window size for data collection of upload bytes. This also resets any data collected so far.
-     *
-     * @param updatedSize the updated size
-     */
-    void updateDownloadBytesMovingAverageWindowSize(int updatedSize) {
-        synchronized (downloadBytesMutex) {
-            this.downloadBytesMovingAverageReference.set(this.downloadBytesMovingAverageReference.get().copyWithSize(updatedSize));
-        }
-    }
+    public void recordDownloadStats(long bytesBefore, long downloadStartTime) {
+        long downloadEndTime = System.nanoTime();
+        long downloadEndTimeMs = System.currentTimeMillis();
+        long durationInMillis = (downloadEndTime - downloadStartTime) / 1_000_000L;
+        long bytesDownloaded = getDownloadBytesSucceeded() - bytesBefore;
 
-    /**
-     * Updates the window size for data collection of upload bytes per second. This also resets any data collected so far.
-     *
-     * @param updatedSize the updated size
-     */
-    void updateDownloadBytesPerSecMovingAverageWindowSize(int updatedSize) {
-        synchronized (downloadBytesPerSecMutex) {
-            this.downloadBytesPerSecMovingAverageReference.set(
-                this.downloadBytesPerSecMovingAverageReference.get().copyWithSize(updatedSize)
-            );
-        }
-    }
+        setLastSuccessfulDownloadTimestamp(downloadEndTimeMs);
 
-    /**
-     * Updates the window size for data collection of upload time (ms). This also resets any data collected so far.
-     *
-     * @param updatedSize the updated size
-     */
-    void updateDownloadTimeMsMovingAverageWindowSize(int updatedSize) {
-        synchronized (downloadTimeMsMutex) {
-            this.downloadTimeMsMovingAverageReference.set(this.downloadTimeMsMovingAverageReference.get().copyWithSize(updatedSize));
+        // We update the duration at the end of successfully downloading all of metadata, .tlog, .ckp
+        // files because this is not a file-level metric but a sync-level metric.
+        // This also ensures the bytes per sec moving average can be correlated.
+        addDownloadTimeInMillis(durationInMillis);
+        updateDownloadBytesMovingAverage(bytesDownloaded);
+        updateDownloadTimeMovingAverage(durationInMillis);
+        if (durationInMillis > 0) {
+            updateDownloadBytesPerSecMovingAverage(bytesDownloaded * 1_000L / durationInMillis);
         }
     }
 
@@ -452,8 +430,8 @@ public class RemoteTranslogTracker {
      * Gets the tracker's state as seen in the stats API
      * @return Stats object with the tracker's stats
      */
-    public RemoteTranslogTracker.Stats stats() {
-        return new RemoteTranslogTracker.Stats(
+    public RemoteTranslogTransferTracker.Stats stats() {
+        return new RemoteTranslogTransferTracker.Stats(
             shardId,
             lastSuccessfulUploadTimestamp.get(),
             totalUploadsStarted.get(),
@@ -696,7 +674,7 @@ public class RemoteTranslogTracker {
         public boolean equals(Object obj) {
             if (this == obj) return true;
             if (obj == null || getClass() != obj.getClass()) return false;
-            RemoteTranslogTracker.Stats other = (RemoteTranslogTracker.Stats) obj;
+            RemoteTranslogTransferTracker.Stats other = (RemoteTranslogTransferTracker.Stats) obj;
 
             return this.shardId.toString().equals(other.shardId.toString())
                 && this.lastSuccessfulUploadTimestamp == other.lastSuccessfulUploadTimestamp
@@ -750,7 +728,7 @@ public class RemoteTranslogTracker {
      * @param other Stats object to compare this tracker against
      * @return true if stats are same and false otherwise
      */
-    boolean hasSameStatsAs(RemoteTranslogTracker.Stats other) {
+    boolean hasSameStatsAs(RemoteTranslogTransferTracker.Stats other) {
         return this.stats().equals(other);
     }
 }

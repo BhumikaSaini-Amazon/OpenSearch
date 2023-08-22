@@ -24,8 +24,7 @@ import org.opensearch.common.logging.Loggers;
 import org.opensearch.common.lucene.store.ByteArrayIndexInput;
 import org.opensearch.core.common.bytes.BytesReference;
 import org.opensearch.core.index.shard.ShardId;
-import org.opensearch.index.remote.RemoteStoreUtils;
-import org.opensearch.index.remote.RemoteTranslogTracker;
+import org.opensearch.index.remote.RemoteTranslogTransferTracker;
 import org.opensearch.index.translog.Translog;
 import org.opensearch.index.translog.transfer.listener.TranslogTransferListener;
 import org.opensearch.threadpool.ThreadPool;
@@ -36,6 +35,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -60,7 +60,7 @@ public class TranslogTransferManager {
     private final BlobPath remoteMetadataTransferPath;
     private final BlobPath remoteBaseTransferPath;
     private final FileTransferTracker fileTransferTracker;
-    private final SetOnce<RemoteTranslogTracker> remoteTranslogTrackerSetOnce = new SetOnce<>();
+    private final SetOnce<RemoteTranslogTransferTracker> remoteTranslogTrackerSetOnce = new SetOnce<>();
 
     private static final long TRANSFER_TIMEOUT_IN_MILLIS = 30000;
 
@@ -89,11 +89,11 @@ public class TranslogTransferManager {
         this.logger = Loggers.getLogger(getClass(), shardId);
     }
 
-    public void setRemoteTranslogTracker(RemoteTranslogTracker remoteTranslogTracker) {
-        remoteTranslogTrackerSetOnce.trySet(remoteTranslogTracker);
+    public void setRemoteTranslogTracker(RemoteTranslogTransferTracker remoteTranslogTransferTracker) {
+        remoteTranslogTrackerSetOnce.trySet(remoteTranslogTransferTracker);
     }
 
-    public RemoteTranslogTracker getRemoteTranslogTracker() {
+    public RemoteTranslogTransferTracker getRemoteTranslogTracker() {
         return remoteTranslogTrackerSetOnce.get();
     }
 
@@ -104,7 +104,11 @@ public class TranslogTransferManager {
     public boolean transferSnapshot(TransferSnapshot transferSnapshot, TranslogTransferListener translogTransferListener)
         throws IOException {
         List<Exception> exceptionList = new ArrayList<>(transferSnapshot.getTranslogTransferMetadata().getCount());
-        Set<TransferFileSnapshot> toUpload = RemoteStoreUtils.getUploadBlobsFromSnapshot(transferSnapshot, fileTransferTracker);
+
+        Set<TransferFileSnapshot> toUpload = new HashSet<>(transferSnapshot.getTranslogTransferMetadata().getCount());
+        toUpload.addAll(fileTransferTracker.exclusionFilter(transferSnapshot.getTranslogFileSnapshots()));
+        toUpload.addAll(fileTransferTracker.exclusionFilter((transferSnapshot.getCheckpointFileSnapshots())));
+
         try {
             if (toUpload.isEmpty()) {
                 logger.trace("Nothing to upload for transfer");

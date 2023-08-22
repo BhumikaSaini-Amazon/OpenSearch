@@ -15,7 +15,7 @@ import org.opensearch.cluster.routing.ShardRouting;
 import org.opensearch.core.xcontent.ToXContentFragment;
 import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.index.remote.RemoteSegmentTransferTracker;
-import org.opensearch.index.remote.RemoteTranslogTracker;
+import org.opensearch.index.remote.RemoteTranslogTransferTracker;
 
 import java.io.IOException;
 
@@ -33,12 +33,12 @@ public class RemoteStoreStats implements Writeable, ToXContentFragment {
     /**
      * Stats related to Remote Translog Store operations
      */
-    private final RemoteTranslogTracker.Stats remoteTranslogShardStats;
+    private final RemoteTranslogTransferTracker.Stats remoteTranslogShardStats;
     private final ShardRouting shardRouting;
 
     public RemoteStoreStats(
         RemoteSegmentTransferTracker.Stats remoteSegmentUploadShardStats,
-        RemoteTranslogTracker.Stats remoteTranslogShardStats,
+        RemoteTranslogTransferTracker.Stats remoteTranslogShardStats,
         ShardRouting shardRouting
     ) {
         this.remoteSegmentShardStats = remoteSegmentUploadShardStats;
@@ -48,7 +48,7 @@ public class RemoteStoreStats implements Writeable, ToXContentFragment {
 
     public RemoteStoreStats(StreamInput in) throws IOException {
         remoteSegmentShardStats = in.readOptionalWriteable(RemoteSegmentTransferTracker.Stats::new);
-        remoteTranslogShardStats = in.readOptionalWriteable(RemoteTranslogTracker.Stats::new);
+        remoteTranslogShardStats = in.readOptionalWriteable(RemoteTranslogTransferTracker.Stats::new);
         this.shardRouting = new ShardRouting(in);
     }
 
@@ -60,7 +60,7 @@ public class RemoteStoreStats implements Writeable, ToXContentFragment {
         return shardRouting;
     }
 
-    public RemoteTranslogTracker.Stats getTranslogStats() {
+    RemoteTranslogTransferTracker.Stats getTranslogStats() {
         return remoteTranslogShardStats;
     }
 

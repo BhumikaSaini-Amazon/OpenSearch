@@ -17,7 +17,7 @@ import org.opensearch.common.xcontent.XContentHelper;
 import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.index.remote.RemoteSegmentTransferTracker;
 import org.opensearch.core.index.shard.ShardId;
-import org.opensearch.index.remote.RemoteTranslogTracker;
+import org.opensearch.index.remote.RemoteTranslogTransferTracker;
 import org.opensearch.test.OpenSearchTestCase;
 import org.opensearch.threadpool.TestThreadPool;
 import org.opensearch.threadpool.ThreadPool;
@@ -53,7 +53,7 @@ public class RemoteStoreStatsTests extends OpenSearchTestCase {
 
     public void testXContentBuilderWithPrimaryShard() throws IOException {
         RemoteSegmentTransferTracker.Stats pressureTrackerSegmentStats = createStatsForNewPrimary(shardId);
-        RemoteTranslogTracker.Stats pressureTrackerTranslogStats = createTranslogStats(shardId);
+        RemoteTranslogTransferTracker.Stats pressureTrackerTranslogStats = createTranslogStats(shardId);
         ShardRouting routing = createShardRouting(shardId, true);
         RemoteStoreStats stats = new RemoteStoreStats(pressureTrackerSegmentStats, pressureTrackerTranslogStats, routing);
 
@@ -65,7 +65,7 @@ public class RemoteStoreStatsTests extends OpenSearchTestCase {
 
     public void testXContentBuilderWithReplicaShard() throws IOException {
         RemoteSegmentTransferTracker.Stats pressureTrackerSegmentStats = createStatsForNewReplica(shardId);
-        RemoteTranslogTracker.Stats pressureTrackerTranslogStats = createEmptyTranslogStats(shardId);
+        RemoteTranslogTransferTracker.Stats pressureTrackerTranslogStats = createEmptyTranslogStats(shardId);
         ShardRouting routing = createShardRouting(shardId, false);
         RemoteStoreStats stats = new RemoteStoreStats(pressureTrackerSegmentStats, pressureTrackerTranslogStats, routing);
 
@@ -77,7 +77,7 @@ public class RemoteStoreStatsTests extends OpenSearchTestCase {
 
     public void testXContentBuilderWithRemoteStoreRestoredShard() throws IOException {
         RemoteSegmentTransferTracker.Stats pressureTrackerSegmentStats = createStatsForRemoteStoreRestoredPrimary(shardId);
-        RemoteTranslogTracker.Stats pressureTrackerTranslogStats = createTranslogStats(shardId);
+        RemoteTranslogTransferTracker.Stats pressureTrackerTranslogStats = createTranslogStats(shardId);
         ShardRouting routing = createShardRouting(shardId, true);
         RemoteStoreStats stats = new RemoteStoreStats(pressureTrackerSegmentStats, pressureTrackerTranslogStats, routing);
 
@@ -89,7 +89,7 @@ public class RemoteStoreStatsTests extends OpenSearchTestCase {
 
     public void testSerializationForPrimaryShard() throws Exception {
         RemoteSegmentTransferTracker.Stats pressureTrackerSegmentStats = createStatsForNewPrimary(shardId);
-        RemoteTranslogTracker.Stats pressureTrackerTranslogStats = createTranslogStats(shardId);
+        RemoteTranslogTransferTracker.Stats pressureTrackerTranslogStats = createTranslogStats(shardId);
         RemoteStoreStats stats = new RemoteStoreStats(
             pressureTrackerSegmentStats,
             pressureTrackerTranslogStats,
@@ -107,7 +107,7 @@ public class RemoteStoreStatsTests extends OpenSearchTestCase {
 
     public void testSerializationForReplicaShard() throws Exception {
         RemoteSegmentTransferTracker.Stats replicaShardStats = createStatsForNewReplica(shardId);
-        RemoteTranslogTracker.Stats pressureTrackerTranslogStats = createEmptyTranslogStats(shardId);
+        RemoteTranslogTransferTracker.Stats pressureTrackerTranslogStats = createEmptyTranslogStats(shardId);
         RemoteStoreStats stats = new RemoteStoreStats(replicaShardStats, pressureTrackerTranslogStats, createShardRouting(shardId, false));
         try (BytesStreamOutput out = new BytesStreamOutput()) {
             stats.writeTo(out);
@@ -121,7 +121,7 @@ public class RemoteStoreStatsTests extends OpenSearchTestCase {
 
     public void testSerializationForRemoteStoreRestoredPrimaryShard() throws Exception {
         RemoteSegmentTransferTracker.Stats primaryShardStats = createStatsForRemoteStoreRestoredPrimary(shardId);
-        RemoteTranslogTracker.Stats pressureTrackerTranslogStats = createTranslogStats(shardId);
+        RemoteTranslogTransferTracker.Stats pressureTrackerTranslogStats = createTranslogStats(shardId);
         RemoteStoreStats stats = new RemoteStoreStats(primaryShardStats, pressureTrackerTranslogStats, createShardRouting(shardId, true));
         try (BytesStreamOutput out = new BytesStreamOutput()) {
             stats.writeTo(out);

@@ -23,7 +23,7 @@ import java.io.IOException;
 
 import static org.mockito.Mockito.mock;
 
-public class RemoteTranslogTrackerTests extends OpenSearchTestCase {
+public class RemoteTranslogTransferTrackerTests extends OpenSearchTestCase {
     private RemoteStorePressureSettings pressureSettings;
 
     private ClusterService clusterService;
@@ -32,7 +32,7 @@ public class RemoteTranslogTrackerTests extends OpenSearchTestCase {
 
     private ShardId shardId;
 
-    private RemoteTranslogTracker tracker;
+    private RemoteTranslogTransferTracker tracker;
 
     @Override
     public void setUp() throws Exception {
@@ -55,15 +55,7 @@ public class RemoteTranslogTrackerTests extends OpenSearchTestCase {
 
     @Before
     public void initTracker() {
-        tracker = new RemoteTranslogTracker(
-            shardId,
-            pressureSettings.getUploadBytesMovingAverageWindowSize(),
-            pressureSettings.getUploadBytesPerSecMovingAverageWindowSize(),
-            pressureSettings.getUploadTimeMovingAverageWindowSize(),
-            pressureSettings.getDownloadBytesMovingAverageWindowSize(),
-            pressureSettings.getDownloadBytesPerSecMovingAverageWindowSize(),
-            pressureSettings.getDownloadTimeMovingAverageWindowSize()
-        );
+        tracker = new RemoteTranslogTransferTracker(shardId, pressureSettings.getMovingAverageWindowSize());
     }
 
     public void testGetShardId() {
@@ -164,96 +156,72 @@ public class RemoteTranslogTrackerTests extends OpenSearchTestCase {
     }
 
     public void testUpdateUploadBytesMovingAverage() {
-        int uploadBytesMovingAverageWindowSize = 20;
-        tracker = new RemoteTranslogTracker(
-            shardId,
-            uploadBytesMovingAverageWindowSize,
-            pressureSettings.getUploadBytesPerSecMovingAverageWindowSize(),
-            pressureSettings.getUploadTimeMovingAverageWindowSize(),
-            pressureSettings.getDownloadBytesMovingAverageWindowSize(),
-            pressureSettings.getDownloadBytesPerSecMovingAverageWindowSize(),
-            pressureSettings.getDownloadTimeMovingAverageWindowSize()
-        );
+        int movingAverageWindowSize = 20;
+        tracker = new RemoteTranslogTransferTracker(shardId, movingAverageWindowSize);
         assertFalse(tracker.isUploadBytesMovingAverageReady());
 
         long sum = 0;
-        for (int i = 1; i < uploadBytesMovingAverageWindowSize; i++) {
+        for (int i = 1; i < movingAverageWindowSize; i++) {
             tracker.updateUploadBytesMovingAverage(i);
             sum += i;
             assertFalse(tracker.isUploadBytesMovingAverageReady());
             assertEquals((double) sum / i, tracker.getUploadBytesMovingAverage(), 0.0d);
         }
 
-        tracker.updateUploadBytesMovingAverage(uploadBytesMovingAverageWindowSize);
-        sum += uploadBytesMovingAverageWindowSize;
+        tracker.updateUploadBytesMovingAverage(movingAverageWindowSize);
+        sum += movingAverageWindowSize;
         assertTrue(tracker.isUploadBytesMovingAverageReady());
-        assertEquals((double) sum / uploadBytesMovingAverageWindowSize, tracker.getUploadBytesMovingAverage(), 0.0d);
+        assertEquals((double) sum / movingAverageWindowSize, tracker.getUploadBytesMovingAverage(), 0.0d);
 
         tracker.updateUploadBytesMovingAverage(100);
         sum = sum + 100 - 1;
-        assertEquals((double) sum / uploadBytesMovingAverageWindowSize, tracker.getUploadBytesMovingAverage(), 0.0d);
+        assertEquals((double) sum / movingAverageWindowSize, tracker.getUploadBytesMovingAverage(), 0.0d);
     }
 
     public void testUpdateUploadBytesPerSecMovingAverage() {
-        int uploadBytesPerSecMovingAverageWindowSize = 20;
-        tracker = new RemoteTranslogTracker(
-            shardId,
-            pressureSettings.getUploadBytesMovingAverageWindowSize(),
-            uploadBytesPerSecMovingAverageWindowSize,
-            pressureSettings.getUploadTimeMovingAverageWindowSize(),
-            pressureSettings.getDownloadBytesMovingAverageWindowSize(),
-            pressureSettings.getDownloadBytesPerSecMovingAverageWindowSize(),
-            pressureSettings.getDownloadTimeMovingAverageWindowSize()
-        );
+        int movingAverageWindowSize = 20;
+        tracker = new RemoteTranslogTransferTracker(shardId, movingAverageWindowSize);
         assertFalse(tracker.isUploadBytesPerSecMovingAverageReady());
 
         long sum = 0;
-        for (int i = 1; i < uploadBytesPerSecMovingAverageWindowSize; i++) {
+        for (int i = 1; i < movingAverageWindowSize; i++) {
             tracker.updateUploadBytesPerSecMovingAverage(i);
             sum += i;
             assertFalse(tracker.isUploadBytesPerSecMovingAverageReady());
             assertEquals((double) sum / i, tracker.getUploadBytesPerSecMovingAverage(), 0.0d);
         }
 
-        tracker.updateUploadBytesPerSecMovingAverage(uploadBytesPerSecMovingAverageWindowSize);
-        sum += uploadBytesPerSecMovingAverageWindowSize;
+        tracker.updateUploadBytesPerSecMovingAverage(movingAverageWindowSize);
+        sum += movingAverageWindowSize;
         assertTrue(tracker.isUploadBytesPerSecMovingAverageReady());
-        assertEquals((double) sum / uploadBytesPerSecMovingAverageWindowSize, tracker.getUploadBytesPerSecMovingAverage(), 0.0d);
+        assertEquals((double) sum / movingAverageWindowSize, tracker.getUploadBytesPerSecMovingAverage(), 0.0d);
 
         tracker.updateUploadBytesPerSecMovingAverage(100);
         sum = sum + 100 - 1;
-        assertEquals((double) sum / uploadBytesPerSecMovingAverageWindowSize, tracker.getUploadBytesPerSecMovingAverage(), 0.0d);
+        assertEquals((double) sum / movingAverageWindowSize, tracker.getUploadBytesPerSecMovingAverage(), 0.0d);
     }
 
     public void testUpdateUploadTimeMovingAverage() {
-        int uploadTimeMovingAverageWindowSize = 20;
-        tracker = new RemoteTranslogTracker(
-            shardId,
-            pressureSettings.getUploadBytesMovingAverageWindowSize(),
-            pressureSettings.getUploadBytesPerSecMovingAverageWindowSize(),
-            uploadTimeMovingAverageWindowSize,
-            pressureSettings.getDownloadBytesMovingAverageWindowSize(),
-            pressureSettings.getDownloadBytesPerSecMovingAverageWindowSize(),
-            pressureSettings.getDownloadTimeMovingAverageWindowSize()
-        );
+        int movingAverageWindowSize = 20;
+        tracker = new RemoteTranslogTransferTracker(shardId, movingAverageWindowSize);
         assertFalse(tracker.isUploadTimeMovingAverageReady());
 
         long sum = 0;
-        for (int i = 1; i < uploadTimeMovingAverageWindowSize; i++) {
+        for (int i = 1; i < movingAverageWindowSize; i++) {
             tracker.updateUploadTimeMovingAverage(i);
             sum += i;
             assertFalse(tracker.isUploadTimeMovingAverageReady());
             assertEquals((double) sum / i, tracker.getUploadTimeMovingAverage(), 0.0d);
         }
 
-        tracker.updateUploadTimeMovingAverage(uploadTimeMovingAverageWindowSize);
-        sum += uploadTimeMovingAverageWindowSize;
+        tracker.updateUploadTimeMovingAverage(movingAverageWindowSize);
+        sum += movingAverageWindowSize;
         assertTrue(tracker.isUploadTimeMovingAverageReady());
-        assertEquals((double) sum / uploadTimeMovingAverageWindowSize, tracker.getUploadTimeMovingAverage(), 0.0d);
+        assertEquals((double) sum / movingAverageWindowSize, tracker.getUploadTimeMovingAverage(), 0.0d);
 
         tracker.updateUploadTimeMovingAverage(100);
         sum = sum + 100 - 1;
-        assertEquals((double) sum / uploadTimeMovingAverageWindowSize, tracker.getUploadTimeMovingAverage(), 0.0d);
+        assertEquals((double) sum / movingAverageWindowSize, tracker.getUploadTimeMovingAverage(), 0.0d);
     }
 
     public void testAddDownloadsSucceeded() {
@@ -292,111 +260,87 @@ public class RemoteTranslogTrackerTests extends OpenSearchTestCase {
     }
 
     public void testUpdateDowmloadBytesMovingAverage() {
-        int downloadBytesMovingAverageWindowSize = 20;
-        tracker = new RemoteTranslogTracker(
-            shardId,
-            pressureSettings.getUploadBytesMovingAverageWindowSize(),
-            pressureSettings.getUploadBytesPerSecMovingAverageWindowSize(),
-            pressureSettings.getUploadTimeMovingAverageWindowSize(),
-            downloadBytesMovingAverageWindowSize,
-            pressureSettings.getDownloadBytesPerSecMovingAverageWindowSize(),
-            pressureSettings.getDownloadTimeMovingAverageWindowSize()
-        );
+        int movingAverageWindowSize = 20;
+        tracker = new RemoteTranslogTransferTracker(shardId, movingAverageWindowSize);
         assertFalse(tracker.isDownloadBytesMovingAverageReady());
 
         long sum = 0;
-        for (int i = 1; i < downloadBytesMovingAverageWindowSize; i++) {
+        for (int i = 1; i < movingAverageWindowSize; i++) {
             tracker.updateDownloadBytesMovingAverage(i);
             sum += i;
             assertFalse(tracker.isDownloadBytesMovingAverageReady());
             assertEquals((double) sum / i, tracker.getDownloadBytesMovingAverage(), 0.0d);
         }
 
-        tracker.updateDownloadBytesMovingAverage(downloadBytesMovingAverageWindowSize);
-        sum += downloadBytesMovingAverageWindowSize;
+        tracker.updateDownloadBytesMovingAverage(movingAverageWindowSize);
+        sum += movingAverageWindowSize;
         assertTrue(tracker.isDownloadBytesMovingAverageReady());
-        assertEquals((double) sum / downloadBytesMovingAverageWindowSize, tracker.getDownloadBytesMovingAverage(), 0.0d);
+        assertEquals((double) sum / movingAverageWindowSize, tracker.getDownloadBytesMovingAverage(), 0.0d);
 
         tracker.updateDownloadBytesMovingAverage(100);
         sum = sum + 100 - 1;
-        assertEquals((double) sum / downloadBytesMovingAverageWindowSize, tracker.getDownloadBytesMovingAverage(), 0.0d);
+        assertEquals((double) sum / movingAverageWindowSize, tracker.getDownloadBytesMovingAverage(), 0.0d);
     }
 
     public void testUpdateDownloadBytesPerSecMovingAverage() {
-        int downloadBytesPerSecMovingAverageWindowSize = 20;
-        tracker = new RemoteTranslogTracker(
-            shardId,
-            pressureSettings.getUploadBytesMovingAverageWindowSize(),
-            pressureSettings.getUploadBytesPerSecMovingAverageWindowSize(),
-            pressureSettings.getUploadTimeMovingAverageWindowSize(),
-            pressureSettings.getDownloadBytesMovingAverageWindowSize(),
-            downloadBytesPerSecMovingAverageWindowSize,
-            pressureSettings.getDownloadTimeMovingAverageWindowSize()
-        );
+        int movingAverageWindowSize = 20;
+        tracker = new RemoteTranslogTransferTracker(shardId, movingAverageWindowSize);
         assertFalse(tracker.isDownloadBytesPerSecMovingAverageReady());
 
         long sum = 0;
-        for (int i = 1; i < downloadBytesPerSecMovingAverageWindowSize; i++) {
+        for (int i = 1; i < movingAverageWindowSize; i++) {
             tracker.updateDownloadBytesPerSecMovingAverage(i);
             sum += i;
             assertFalse(tracker.isDownloadBytesPerSecMovingAverageReady());
             assertEquals((double) sum / i, tracker.getDownloadBytesPerSecMovingAverage(), 0.0d);
         }
 
-        tracker.updateDownloadBytesPerSecMovingAverage(downloadBytesPerSecMovingAverageWindowSize);
-        sum += downloadBytesPerSecMovingAverageWindowSize;
+        tracker.updateDownloadBytesPerSecMovingAverage(movingAverageWindowSize);
+        sum += movingAverageWindowSize;
         assertTrue(tracker.isDownloadBytesPerSecMovingAverageReady());
-        assertEquals((double) sum / downloadBytesPerSecMovingAverageWindowSize, tracker.getDownloadBytesPerSecMovingAverage(), 0.0d);
+        assertEquals((double) sum / movingAverageWindowSize, tracker.getDownloadBytesPerSecMovingAverage(), 0.0d);
 
         tracker.updateDownloadBytesPerSecMovingAverage(100);
         sum = sum + 100 - 1;
-        assertEquals((double) sum / downloadBytesPerSecMovingAverageWindowSize, tracker.getDownloadBytesPerSecMovingAverage(), 0.0d);
+        assertEquals((double) sum / movingAverageWindowSize, tracker.getDownloadBytesPerSecMovingAverage(), 0.0d);
     }
 
     public void testUpdateDownloadTimeMovingAverage() {
-        int downloadTimeMovingAverageWindowSize = 20;
-        tracker = new RemoteTranslogTracker(
-            shardId,
-            pressureSettings.getUploadBytesMovingAverageWindowSize(),
-            pressureSettings.getUploadBytesPerSecMovingAverageWindowSize(),
-            pressureSettings.getUploadTimeMovingAverageWindowSize(),
-            pressureSettings.getDownloadBytesMovingAverageWindowSize(),
-            pressureSettings.getDownloadBytesPerSecMovingAverageWindowSize(),
-            downloadTimeMovingAverageWindowSize
-        );
+        int movingAverageWindowSize = 20;
+        tracker = new RemoteTranslogTransferTracker(shardId, movingAverageWindowSize);
         assertFalse(tracker.isDownloadTimeMovingAverageReady());
 
         long sum = 0;
-        for (int i = 1; i < downloadTimeMovingAverageWindowSize; i++) {
+        for (int i = 1; i < movingAverageWindowSize; i++) {
             tracker.updateDownloadTimeMovingAverage(i);
             sum += i;
             assertFalse(tracker.isDownloadTimeMovingAverageReady());
             assertEquals((double) sum / i, tracker.getDownloadTimeMovingAverage(), 0.0d);
         }
 
-        tracker.updateDownloadTimeMovingAverage(downloadTimeMovingAverageWindowSize);
-        sum += downloadTimeMovingAverageWindowSize;
+        tracker.updateDownloadTimeMovingAverage(movingAverageWindowSize);
+        sum += movingAverageWindowSize;
         assertTrue(tracker.isDownloadTimeMovingAverageReady());
-        assertEquals((double) sum / downloadTimeMovingAverageWindowSize, tracker.getDownloadTimeMovingAverage(), 0.0d);
+        assertEquals((double) sum / movingAverageWindowSize, tracker.getDownloadTimeMovingAverage(), 0.0d);
 
         tracker.updateDownloadTimeMovingAverage(100);
         sum = sum + 100 - 1;
-        assertEquals((double) sum / downloadTimeMovingAverageWindowSize, tracker.getDownloadTimeMovingAverage(), 0.0d);
+        assertEquals((double) sum / movingAverageWindowSize, tracker.getDownloadTimeMovingAverage(), 0.0d);
     }
 
     public void testStatsObjectCreation() {
         populateDummyStats();
-        RemoteTranslogTracker.Stats actualStats = tracker.stats();
+        RemoteTranslogTransferTracker.Stats actualStats = tracker.stats();
         assertTrue(tracker.hasSameStatsAs(actualStats));
     }
 
     public void testStatsObjectCreationViaStream() throws IOException {
         populateDummyStats();
-        RemoteTranslogTracker.Stats expectedStats = tracker.stats();
+        RemoteTranslogTransferTracker.Stats expectedStats = tracker.stats();
         try (BytesStreamOutput out = new BytesStreamOutput()) {
             expectedStats.writeTo(out);
             try (StreamInput in = out.bytes().streamInput()) {
-                RemoteTranslogTracker.Stats deserializedStats = new RemoteTranslogTracker.Stats(in);
+                RemoteTranslogTransferTracker.Stats deserializedStats = new RemoteTranslogTransferTracker.Stats(in);
                 assertTrue(tracker.hasSameStatsAs(deserializedStats));
             }
         }
