@@ -92,9 +92,14 @@ public class RemoteFsTranslog extends Translog {
         this.blobStoreRepository = blobStoreRepository;
         this.primaryModeSupplier = primaryModeSupplier;
         fileTransferTracker = new FileTransferTracker(shardId);
-        this.translogTransferManager = buildTranslogTransferManager(blobStoreRepository, threadPool, shardId, fileTransferTracker);
         this.remoteTranslogTransferTracker = remoteTranslogTransferTracker;
-        this.translogTransferManager.setRemoteTranslogTracker(this.remoteTranslogTransferTracker);
+        this.translogTransferManager = buildTranslogTransferManager(
+            blobStoreRepository,
+            threadPool,
+            shardId,
+            fileTransferTracker,
+            remoteTranslogTransferTracker
+        );
         try {
             download(translogTransferManager, location, logger);
             Checkpoint checkpoint = readCheckpoint(location);
@@ -145,23 +150,22 @@ public class RemoteFsTranslog extends Translog {
         );
         BlobStoreRepository blobStoreRepository = (BlobStoreRepository) repository;
         FileTransferTracker fileTransferTracker = new FileTransferTracker(shardId);
+        // Below, we use a dummy stats tracker to ensure the flow doesn't break on first download of tlog files.
+        // This first download is to ensure the segment file corruption checks pass.
+        // These tlog files will get downloaded again for the actual tlog replay.
         TranslogTransferManager translogTransferManager = buildTranslogTransferManager(
             blobStoreRepository,
             threadPool,
             shardId,
-            fileTransferTracker
+            fileTransferTracker,
+            new RemoteTranslogTransferTracker(shardId, 1000)
         );
-
-        // Dummy stats tracker to ensure the flow doesn't break on first download of tlog files.
-        // This first download is to ensure the segment file corruption checks pass.
-        // These tlog files will get downloaded again for the actual tlog replay.
-        translogTransferManager.setRemoteTranslogTracker(new RemoteTranslogTransferTracker(shardId, 1000));
         RemoteFsTranslog.download(translogTransferManager, location, logger);
     }
 
     public static void download(TranslogTransferManager translogTransferManager, Path location, Logger logger) throws IOException {
         logger.trace("Downloading translog files from remote");
-        RemoteTranslogTransferTracker statsTracker = translogTransferManager.getRemoteTranslogTracker();
+        RemoteTranslogTransferTracker statsTracker = translogTransferManager.getRemoteTranslogTransferTracker();
         long bytesBefore = statsTracker.getDownloadBytesSucceeded();
         long downloadStartTime = System.nanoTime();
         TranslogTransferMetadata translogMetadata = translogTransferManager.readMetadata();
@@ -197,13 +201,15 @@ public class RemoteFsTranslog extends Translog {
         BlobStoreRepository blobStoreRepository,
         ThreadPool threadPool,
         ShardId shardId,
-        FileTransferTracker fileTransferTracker
+        FileTransferTracker fileTransferTracker,
+        RemoteTranslogTransferTracker remoteTranslogTransferTracker
     ) {
         return new TranslogTransferManager(
             shardId,
             new BlobStoreTransferService(blobStoreRepository.blobStore(), threadPool),
             blobStoreRepository.basePath().add(shardId.getIndex().getUUID()).add(String.valueOf(shardId.id())).add(TRANSLOG),
-            fileTransferTracker
+            fileTransferTracker,
+            remoteTranslogTransferTracker
         );
     }
 
@@ -447,11 +453,13 @@ public class RemoteFsTranslog extends Translog {
         assert repository instanceof BlobStoreRepository : "repository should be instance of BlobStoreRepository";
         BlobStoreRepository blobStoreRepository = (BlobStoreRepository) repository;
         FileTransferTracker fileTransferTracker = new FileTransferTracker(shardId);
+        // Below, we use a dummy stats tracker to ensure the flow doesn't break.
         TranslogTransferManager translogTransferManager = buildTranslogTransferManager(
             blobStoreRepository,
             threadPool,
             shardId,
-            fileTransferTracker
+            fileTransferTracker,
+            new RemoteTranslogTransferTracker(shardId, 1000)
         );
         // clean up all remote translog files
         translogTransferManager.deleteTranslogFiles();
@@ -570,7 +578,7 @@ public class RemoteFsTranslog extends Translog {
          * Adds relevant stats to the tracker when an upload is started
          */
         private void captureStatsBeforeUpload() {
-            remoteTranslogTransferTracker.addUploadsStarted(toUpload.size());
+            remoteTranslogTransferTracker.incrementUploadsStarted();
             remoteTranslogTransferTracker.addUploadBytesStarted(uploadBytes);
         }
 
@@ -579,7 +587,7 @@ public class RemoteFsTranslog extends Translog {
          */
         private void captureStatsOnUploadSuccess() {
             long uploadDurationInMillis = (uploadEndTime - uploadStartTime) / 1_000_000L;
-            remoteTranslogTransferTracker.addUploadsSucceeded(toUpload.size());
+            remoteTranslogTransferTracker.incrementUploadsSucceeded();
             remoteTranslogTransferTracker.addUploadBytesSucceeded(uploadBytes);
             remoteTranslogTransferTracker.addUploadTimeInMillis(uploadDurationInMillis);
             remoteTranslogTransferTracker.setLastSuccessfulUploadTimestamp(uploadEndTimeMs);
@@ -608,8 +616,7 @@ public class RemoteFsTranslog extends Translog {
                 }
             }
 
-            remoteTranslogTransferTracker.addUploadsSucceeded(successfulUploads.size());
-            remoteTranslogTransferTracker.addUploadsFailed(failedUploads.size());
+            remoteTranslogTransferTracker.incrementUploadsFailed();
             remoteTranslogTransferTracker.addUploadBytesSucceeded(RemoteStoreUtils.getTotalBytes(successfulUploads));
             remoteTranslogTransferTracker.addUploadBytesFailed(RemoteStoreUtils.getTotalBytes(failedUploads));
         }

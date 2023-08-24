@@ -8,54 +8,27 @@
 
 package org.opensearch.index.remote;
 
-import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.io.stream.BytesStreamOutput;
-import org.opensearch.common.settings.ClusterSettings;
-import org.opensearch.common.settings.Settings;
 import org.opensearch.core.common.io.stream.StreamInput;
 import org.opensearch.core.index.shard.ShardId;
 import org.opensearch.test.OpenSearchTestCase;
-import org.opensearch.threadpool.TestThreadPool;
-import org.opensearch.threadpool.ThreadPool;
 import org.junit.Before;
 
 import java.io.IOException;
 
-import static org.mockito.Mockito.mock;
-
 public class RemoteTranslogTransferTrackerTests extends OpenSearchTestCase {
-    private RemoteStorePressureSettings pressureSettings;
-
-    private ClusterService clusterService;
-
-    private ThreadPool threadPool;
-
     private ShardId shardId;
-
     private RemoteTranslogTransferTracker tracker;
 
     @Override
     public void setUp() throws Exception {
         super.setUp();
-        threadPool = new TestThreadPool("remote_store_pressure_settings_test");
-        clusterService = new ClusterService(
-            Settings.EMPTY,
-            new ClusterSettings(Settings.EMPTY, ClusterSettings.BUILT_IN_CLUSTER_SETTINGS),
-            threadPool
-        );
-        pressureSettings = new RemoteStorePressureSettings(clusterService, Settings.EMPTY, mock(RemoteStorePressureService.class));
         shardId = new ShardId("index", "uuid", 0);
-    }
-
-    @Override
-    public void tearDown() throws Exception {
-        super.tearDown();
-        threadPool.shutdownNow();
     }
 
     @Before
     public void initTracker() {
-        tracker = new RemoteTranslogTransferTracker(shardId, pressureSettings.getMovingAverageWindowSize());
+        tracker = new RemoteTranslogTransferTracker(shardId, RemoteStoreStatsTrackerFactory.Defaults.MOVING_AVERAGE_WINDOW_SIZE_MIN_VALUE);
     }
 
     public void testGetShardId() {
@@ -69,32 +42,38 @@ public class RemoteTranslogTransferTrackerTests extends OpenSearchTestCase {
     public void testAddUploadsFailed() {
         populateUploadsStarted();
         assertEquals(0L, tracker.getTotalUploadsFailed());
-        tracker.addUploadsFailed(1);
+        tracker.incrementUploadsFailed();
         assertEquals(1L, tracker.getTotalUploadsFailed());
-        tracker.addUploadsFailed(5);
-        assertEquals(6L, tracker.getTotalUploadsFailed());
+        tracker.incrementUploadsFailed();
+        assertEquals(2L, tracker.getTotalUploadsFailed());
     }
 
     public void testInvalidAddUploadsFailed() {
         populateUploadsStarted();
-        tracker.addUploadsSucceeded(tracker.getTotalUploadsStarted());
-        AssertionError error = assertThrows(AssertionError.class, () -> tracker.addUploadsFailed(1));
+        for (int i = 0; i < tracker.getTotalUploadsStarted(); i++) {
+            tracker.incrementUploadsSucceeded();
+        }
+
+        AssertionError error = assertThrows(AssertionError.class, () -> tracker.incrementUploadsFailed());
         assertTrue(error.getMessage().contains("Sum of failure count ("));
     }
 
     public void testAddUploadsSucceeded() {
         populateUploadsStarted();
         assertEquals(0L, tracker.getTotalUploadsSucceeded());
-        tracker.addUploadsSucceeded(4);
-        assertEquals(4L, tracker.getTotalUploadsSucceeded());
-        tracker.addUploadsSucceeded(2);
-        assertEquals(6L, tracker.getTotalUploadsSucceeded());
+        tracker.incrementUploadsSucceeded();
+        assertEquals(1L, tracker.getTotalUploadsSucceeded());
+        tracker.incrementUploadsSucceeded();
+        assertEquals(2L, tracker.getTotalUploadsSucceeded());
     }
 
     public void testInvalidAddUploadsSucceeded() {
         populateUploadsStarted();
-        tracker.addUploadsFailed(tracker.getTotalUploadsStarted());
-        AssertionError error = assertThrows(AssertionError.class, () -> tracker.addUploadsSucceeded(1));
+        for (int i = 0; i < tracker.getTotalUploadsStarted(); i++) {
+            tracker.incrementUploadsFailed();
+        }
+
+        AssertionError error = assertThrows(AssertionError.class, () -> tracker.incrementUploadsSucceeded());
         assertTrue(error.getMessage().contains("Sum of failure count ("));
     }
 
@@ -156,7 +135,10 @@ public class RemoteTranslogTransferTrackerTests extends OpenSearchTestCase {
     }
 
     public void testUpdateUploadBytesMovingAverage() {
-        int movingAverageWindowSize = 20;
+        int movingAverageWindowSize = randomIntBetween(
+            RemoteStoreStatsTrackerFactory.Defaults.MOVING_AVERAGE_WINDOW_SIZE_MIN_VALUE,
+            RemoteStoreStatsTrackerFactory.Defaults.MOVING_AVERAGE_WINDOW_SIZE + 5
+        );
         tracker = new RemoteTranslogTransferTracker(shardId, movingAverageWindowSize);
         assertFalse(tracker.isUploadBytesMovingAverageReady());
 
@@ -179,7 +161,10 @@ public class RemoteTranslogTransferTrackerTests extends OpenSearchTestCase {
     }
 
     public void testUpdateUploadBytesPerSecMovingAverage() {
-        int movingAverageWindowSize = 20;
+        int movingAverageWindowSize = randomIntBetween(
+            RemoteStoreStatsTrackerFactory.Defaults.MOVING_AVERAGE_WINDOW_SIZE_MIN_VALUE,
+            RemoteStoreStatsTrackerFactory.Defaults.MOVING_AVERAGE_WINDOW_SIZE + 5
+        );
         tracker = new RemoteTranslogTransferTracker(shardId, movingAverageWindowSize);
         assertFalse(tracker.isUploadBytesPerSecMovingAverageReady());
 
@@ -202,7 +187,10 @@ public class RemoteTranslogTransferTrackerTests extends OpenSearchTestCase {
     }
 
     public void testUpdateUploadTimeMovingAverage() {
-        int movingAverageWindowSize = 20;
+        int movingAverageWindowSize = randomIntBetween(
+            RemoteStoreStatsTrackerFactory.Defaults.MOVING_AVERAGE_WINDOW_SIZE_MIN_VALUE,
+            RemoteStoreStatsTrackerFactory.Defaults.MOVING_AVERAGE_WINDOW_SIZE + 5
+        );
         tracker = new RemoteTranslogTransferTracker(shardId, movingAverageWindowSize);
         assertFalse(tracker.isUploadTimeMovingAverageReady());
 
@@ -226,10 +214,10 @@ public class RemoteTranslogTransferTrackerTests extends OpenSearchTestCase {
 
     public void testAddDownloadsSucceeded() {
         assertEquals(0L, tracker.getTotalDownloadsSucceeded());
-        tracker.addDownloadsSucceeded(4);
-        assertEquals(4L, tracker.getTotalDownloadsSucceeded());
-        tracker.addDownloadsSucceeded(2);
-        assertEquals(6L, tracker.getTotalDownloadsSucceeded());
+        tracker.incrementDownloadsSucceeded();
+        assertEquals(1L, tracker.getTotalDownloadsSucceeded());
+        tracker.incrementDownloadsSucceeded();
+        assertEquals(2L, tracker.getTotalDownloadsSucceeded());
     }
 
     public void testAddDownloadBytesSucceeded() {
@@ -260,7 +248,10 @@ public class RemoteTranslogTransferTrackerTests extends OpenSearchTestCase {
     }
 
     public void testUpdateDowmloadBytesMovingAverage() {
-        int movingAverageWindowSize = 20;
+        int movingAverageWindowSize = randomIntBetween(
+            RemoteStoreStatsTrackerFactory.Defaults.MOVING_AVERAGE_WINDOW_SIZE_MIN_VALUE,
+            RemoteStoreStatsTrackerFactory.Defaults.MOVING_AVERAGE_WINDOW_SIZE + 5
+        );
         tracker = new RemoteTranslogTransferTracker(shardId, movingAverageWindowSize);
         assertFalse(tracker.isDownloadBytesMovingAverageReady());
 
@@ -283,7 +274,10 @@ public class RemoteTranslogTransferTrackerTests extends OpenSearchTestCase {
     }
 
     public void testUpdateDownloadBytesPerSecMovingAverage() {
-        int movingAverageWindowSize = 20;
+        int movingAverageWindowSize = randomIntBetween(
+            RemoteStoreStatsTrackerFactory.Defaults.MOVING_AVERAGE_WINDOW_SIZE_MIN_VALUE,
+            RemoteStoreStatsTrackerFactory.Defaults.MOVING_AVERAGE_WINDOW_SIZE + 5
+        );
         tracker = new RemoteTranslogTransferTracker(shardId, movingAverageWindowSize);
         assertFalse(tracker.isDownloadBytesPerSecMovingAverageReady());
 
@@ -306,7 +300,10 @@ public class RemoteTranslogTransferTrackerTests extends OpenSearchTestCase {
     }
 
     public void testUpdateDownloadTimeMovingAverage() {
-        int movingAverageWindowSize = 20;
+        int movingAverageWindowSize = randomIntBetween(
+            RemoteStoreStatsTrackerFactory.Defaults.MOVING_AVERAGE_WINDOW_SIZE_MIN_VALUE,
+            RemoteStoreStatsTrackerFactory.Defaults.MOVING_AVERAGE_WINDOW_SIZE + 5
+        );
         tracker = new RemoteTranslogTransferTracker(shardId, movingAverageWindowSize);
         assertFalse(tracker.isDownloadTimeMovingAverageReady());
 
@@ -348,10 +345,10 @@ public class RemoteTranslogTransferTrackerTests extends OpenSearchTestCase {
 
     private void populateUploadsStarted() {
         assertEquals(0L, tracker.getTotalUploadsStarted());
-        tracker.addUploadsStarted(1);
+        tracker.incrementUploadsStarted();
         assertEquals(1L, tracker.getTotalUploadsStarted());
-        tracker.addUploadsStarted(5);
-        assertEquals(6L, tracker.getTotalUploadsStarted());
+        tracker.incrementUploadsStarted();
+        assertEquals(2L, tracker.getTotalUploadsStarted());
     }
 
     private void populateUploadBytesStarted() {
@@ -366,20 +363,21 @@ public class RemoteTranslogTransferTrackerTests extends OpenSearchTestCase {
 
     private void populateDummyStats() {
         int startedBytesUpload = randomIntBetween(10, 100);
-        int startedUploads = randomIntBetween(6, 10);
-
         tracker.addUploadBytesStarted(startedBytesUpload);
         tracker.addUploadBytesFailed(randomIntBetween(1, startedBytesUpload / 2));
         tracker.addUploadBytesSucceeded(randomIntBetween(1, startedBytesUpload / 2));
+
         tracker.addUploadTimeInMillis(randomIntBetween(10, 100));
         tracker.setLastSuccessfulUploadTimestamp(System.currentTimeMillis() + randomIntBetween(10, 100));
-        tracker.addUploadsStarted(startedUploads);
-        tracker.addUploadsFailed(randomIntBetween(1, startedUploads / 2));
-        tracker.addUploadsSucceeded(randomIntBetween(1, startedUploads / 2));
+
+        tracker.incrementUploadsStarted();
+        tracker.incrementUploadsStarted();
+        tracker.incrementUploadsFailed();
+        tracker.incrementUploadsSucceeded();
 
         tracker.addDownloadBytesSucceeded(randomIntBetween(10, 100));
         tracker.addDownloadTimeInMillis(randomIntBetween(10, 100));
         tracker.setLastSuccessfulDownloadTimestamp(System.currentTimeMillis() + randomIntBetween(10, 100));
-        tracker.addDownloadsSucceeded(randomIntBetween(1, 5));
+        tracker.incrementDownloadsSucceeded();
     }
 }

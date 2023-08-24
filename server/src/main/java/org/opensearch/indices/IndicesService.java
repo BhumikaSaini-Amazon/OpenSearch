@@ -60,7 +60,6 @@ import org.opensearch.common.CheckedConsumer;
 import org.opensearch.common.CheckedFunction;
 import org.opensearch.common.CheckedSupplier;
 import org.opensearch.common.Nullable;
-import org.opensearch.common.SetOnce;
 import org.opensearch.common.io.stream.BytesStreamOutput;
 import org.opensearch.common.lease.Releasable;
 import org.opensearch.common.lifecycle.AbstractLifecycleComponent;
@@ -351,7 +350,6 @@ public class IndicesService extends AbstractLifecycleComponent
     private final BiFunction<IndexSettings, ShardRouting, TranslogFactory> translogFactorySupplier;
     private volatile TimeValue clusterDefaultRefreshInterval;
     private final FileCacheCleaner fileCacheCleaner;
-    private static final SetOnce<RemoteStorePressureService> pressureServiceSetOnce = new SetOnce<>();
 
     @Override
     protected void doStart() {
@@ -382,7 +380,8 @@ public class IndicesService extends AbstractLifecycleComponent
         Map<String, IndexStorePlugin.RecoveryStateFactory> recoveryStateFactories,
         IndexStorePlugin.DirectoryFactory remoteDirectoryFactory,
         Supplier<RepositoriesService> repositoriesServiceSupplier,
-        FileCacheCleaner fileCacheCleaner
+        FileCacheCleaner fileCacheCleaner,
+        @Nullable RemoteStoreStatsTrackerFactory remoteStoreStatsTrackerFactory
     ) {
         this.settings = settings;
         this.threadPool = threadPool;
@@ -471,7 +470,7 @@ public class IndicesService extends AbstractLifecycleComponent
         this.allowExpensiveQueries = ALLOW_EXPENSIVE_QUERIES.get(clusterService.getSettings());
         clusterService.getClusterSettings().addSettingsUpdateConsumer(ALLOW_EXPENSIVE_QUERIES, this::setAllowExpensiveQueries);
         this.remoteDirectoryFactory = remoteDirectoryFactory;
-        this.translogFactorySupplier = getTranslogFactorySupplier(repositoriesServiceSupplier, threadPool);
+        this.translogFactorySupplier = getTranslogFactorySupplier(repositoriesServiceSupplier, threadPool, remoteStoreStatsTrackerFactory);
         this.clusterDefaultRefreshInterval = CLUSTER_DEFAULT_INDEX_REFRESH_INTERVAL_SETTING.get(clusterService.getSettings());
         clusterService.getClusterSettings()
             .addSettingsUpdateConsumer(CLUSTER_DEFAULT_INDEX_REFRESH_INTERVAL_SETTING, this::onRefreshIntervalUpdate);
@@ -495,7 +494,8 @@ public class IndicesService extends AbstractLifecycleComponent
 
     private static BiFunction<IndexSettings, ShardRouting, TranslogFactory> getTranslogFactorySupplier(
         Supplier<RepositoriesService> repositoriesServiceSupplier,
-        ThreadPool threadPool
+        ThreadPool threadPool,
+        RemoteStoreStatsTrackerFactory remoteStoreStatsTrackerFactory
     ) {
         return (indexSettings, shardRouting) -> {
             if (indexSettings.isRemoteTranslogStoreEnabled() && shardRouting.primary()) {
@@ -503,7 +503,7 @@ public class IndicesService extends AbstractLifecycleComponent
                     repositoriesServiceSupplier,
                     threadPool,
                     indexSettings.getRemoteStoreTranslogRepository(),
-                    pressureServiceSetOnce.get().getRemoteTranslogTracker(shardRouting.shardId())
+                    remoteStoreStatsTrackerFactory.getRemoteTranslogTransferTracker(shardRouting.shardId())
                 );
             }
             return new InternalTranslogFactory();
@@ -1983,14 +1983,5 @@ public class IndicesService extends AbstractLifecycleComponent
 
     private TimeValue getClusterDefaultRefreshInterval() {
         return this.clusterDefaultRefreshInterval;
-    }
-
-    public void setPressureService(RemoteStorePressureService pressureService) {
-        pressureServiceSetOnce.trySet(pressureService);
-    }
-
-    // visible for testing
-    public RemoteStorePressureService getPressureService() {
-        return pressureServiceSetOnce.get();
     }
 }

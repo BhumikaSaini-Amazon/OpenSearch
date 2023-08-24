@@ -665,7 +665,10 @@ public abstract class IndexShardTestCase extends OpenSearchTestCase {
                     return new RemoteBlobStoreInternalTranslogFactory(
                         () -> mockRepoSvc,
                         threadPool,
-                        settings.getRemoteStoreTranslogRepository()
+                        settings.getRemoteStoreTranslogRepository(),
+                        new RemoteStoreStatsTrackerFactory(clusterService, Settings.EMPTY).getRemoteTranslogTransferTracker(
+                            shardRouting.shardId()
+                        )
                     );
                 }
                 return new InternalTranslogFactory();

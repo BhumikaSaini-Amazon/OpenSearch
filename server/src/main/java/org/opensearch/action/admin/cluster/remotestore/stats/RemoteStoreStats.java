@@ -307,7 +307,7 @@ public class RemoteStoreStats implements Writeable, ToXContentFragment {
         static final String TOTAL_UPLOADS_IN_BYTES = "total_uploads_in_bytes";
 
         /**
-         * Total time spent on remote store uplaods
+         * Total time spent on remote store uploads
          */
         static final String TOTAL_UPLOAD_TIME_IN_MILLIS = "total_upload_time_in_millis";
 

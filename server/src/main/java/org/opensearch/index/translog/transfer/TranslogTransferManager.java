@@ -60,7 +60,7 @@ public class TranslogTransferManager {
     private final BlobPath remoteMetadataTransferPath;
     private final BlobPath remoteBaseTransferPath;
     private final FileTransferTracker fileTransferTracker;
-    private final SetOnce<RemoteTranslogTransferTracker> remoteTranslogTrackerSetOnce = new SetOnce<>();
+    private final RemoteTranslogTransferTracker remoteTranslogTransferTracker;
 
     private static final long TRANSFER_TIMEOUT_IN_MILLIS = 30000;
 
@@ -78,7 +78,8 @@ public class TranslogTransferManager {
         ShardId shardId,
         TransferService transferService,
         BlobPath remoteBaseTransferPath,
-        FileTransferTracker fileTransferTracker
+        FileTransferTracker fileTransferTracker,
+        RemoteTranslogTransferTracker remoteTranslogTransferTracker
     ) {
         this.shardId = shardId;
         this.transferService = transferService;
@@ -87,14 +88,11 @@ public class TranslogTransferManager {
         this.remoteMetadataTransferPath = remoteBaseTransferPath.add(METADATA_DIR);
         this.fileTransferTracker = fileTransferTracker;
         this.logger = Loggers.getLogger(getClass(), shardId);
+        this.remoteTranslogTransferTracker = remoteTranslogTransferTracker;
     }
 
-    public void setRemoteTranslogTracker(RemoteTranslogTransferTracker remoteTranslogTransferTracker) {
-        remoteTranslogTrackerSetOnce.trySet(remoteTranslogTransferTracker);
-    }
-
-    public RemoteTranslogTransferTracker getRemoteTranslogTracker() {
-        return remoteTranslogTrackerSetOnce.get();
+    public RemoteTranslogTransferTracker getRemoteTranslogTransferTracker() {
+        return remoteTranslogTransferTracker;
     }
 
     public ShardId getShardId() {
@@ -204,8 +202,8 @@ public class TranslogTransferManager {
 
         // Mark in FileTransferTracker so that the same files are not uploaded at the time of translog sync
         fileTransferTracker.add(fileName, true);
-        remoteTranslogTrackerSetOnce.get().addDownloadBytesSucceeded(bytesToRead);
-        remoteTranslogTrackerSetOnce.get().addDownloadsSucceeded(1);
+        remoteTranslogTransferTracker.addDownloadBytesSucceeded(bytesToRead);
+        remoteTranslogTransferTracker.incrementDownloadsSucceeded();
     }
 
     public TranslogTransferMetadata readMetadata() throws IOException {
@@ -220,8 +218,8 @@ public class TranslogTransferManager {
                     long bytesToRead = inputStream.available();
                     IndexInput indexInput = new ByteArrayIndexInput("metadata file", inputStream.readAllBytes());
                     metadataSetOnce.set(metadataStreamWrapper.readStream(indexInput));
-                    remoteTranslogTrackerSetOnce.get().addDownloadBytesSucceeded(bytesToRead);
-                    remoteTranslogTrackerSetOnce.get().addDownloadsSucceeded(1);
+                    remoteTranslogTransferTracker.addDownloadBytesSucceeded(bytesToRead);
+                    remoteTranslogTransferTracker.incrementDownloadsSucceeded();
                 } catch (IOException e) {
                     logger.error(() -> new ParameterizedMessage("Exception while reading metadata file: {}", filename), e);
                     exceptionSetOnce.set(e);

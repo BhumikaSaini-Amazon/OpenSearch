@@ -218,18 +218,18 @@ public class RemoteTranslogTransferTracker {
         return shardId;
     }
 
-    public void addUploadsStarted(long count) {
-        totalUploadsStarted.addAndGet(count);
+    public void incrementUploadsStarted() {
+        totalUploadsStarted.addAndGet(1);
     }
 
-    public void addUploadsFailed(long count) {
-        checkTotal(totalUploadsStarted.get(), totalUploadsFailed.get(), totalUploadsSucceeded.get(), count);
-        totalUploadsFailed.addAndGet(count);
+    public void incrementUploadsFailed() {
+        checkTotal(totalUploadsStarted.get(), totalUploadsFailed.get(), totalUploadsSucceeded.get(), 1);
+        totalUploadsFailed.addAndGet(1);
     }
 
-    public void addUploadsSucceeded(long count) {
-        checkTotal(totalUploadsStarted.get(), totalUploadsFailed.get(), totalUploadsSucceeded.get(), count);
-        totalUploadsSucceeded.addAndGet(count);
+    public void incrementUploadsSucceeded() {
+        checkTotal(totalUploadsStarted.get(), totalUploadsFailed.get(), totalUploadsSucceeded.get(), 1);
+        totalUploadsSucceeded.addAndGet(1);
     }
 
     public void addUploadBytesStarted(long count) {
@@ -276,7 +276,7 @@ public class RemoteTranslogTransferTracker {
         return uploadBytesPerSecMovingAverageReference.get().isReady();
     }
 
-    public double getUploadBytesPerSecMovingAverage() {
+    double getUploadBytesPerSecMovingAverage() {
         return uploadBytesPerSecMovingAverageReference.get().getAverage();
     }
 
@@ -290,7 +290,7 @@ public class RemoteTranslogTransferTracker {
         return uploadTimeMsMovingAverageReference.get().isReady();
     }
 
-    public double getUploadTimeMovingAverage() {
+    double getUploadTimeMovingAverage() {
         return uploadTimeMsMovingAverageReference.get().getAverage();
     }
 
@@ -337,8 +337,8 @@ public class RemoteTranslogTransferTracker {
         return totalDownloadsSucceeded.get();
     }
 
-    public void addDownloadsSucceeded(long count) {
-        totalDownloadsSucceeded.addAndGet(count);
+    public void incrementDownloadsSucceeded() {
+        totalDownloadsSucceeded.addAndGet(1);
     }
 
     public long getDownloadBytesSucceeded() {
@@ -353,7 +353,7 @@ public class RemoteTranslogTransferTracker {
         return totalDownloadTimeInMillis.get();
     }
 
-    public void addDownloadTimeInMillis(long duration) {
+    void addDownloadTimeInMillis(long duration) {
         totalDownloadTimeInMillis.addAndGet(duration);
     }
 
@@ -361,7 +361,7 @@ public class RemoteTranslogTransferTracker {
         return lastSuccessfulDownloadTimestamp.get();
     }
 
-    public void setLastSuccessfulDownloadTimestamp(long lastSuccessfulDownloadTimestamp) {
+    void setLastSuccessfulDownloadTimestamp(long lastSuccessfulDownloadTimestamp) {
         this.lastSuccessfulDownloadTimestamp.set(lastSuccessfulDownloadTimestamp);
     }
 
@@ -369,11 +369,11 @@ public class RemoteTranslogTransferTracker {
         return downloadBytesMovingAverageReference.get().isReady();
     }
 
-    public double getDownloadBytesMovingAverage() {
+    double getDownloadBytesMovingAverage() {
         return downloadBytesMovingAverageReference.get().getAverage();
     }
 
-    public void updateDownloadBytesMovingAverage(long count) {
+    void updateDownloadBytesMovingAverage(long count) {
         synchronized (downloadBytesMutex) {
             this.downloadBytesMovingAverageReference.get().record(count);
         }
@@ -383,11 +383,11 @@ public class RemoteTranslogTransferTracker {
         return downloadBytesPerSecMovingAverageReference.get().isReady();
     }
 
-    public double getDownloadBytesPerSecMovingAverage() {
+    double getDownloadBytesPerSecMovingAverage() {
         return downloadBytesPerSecMovingAverageReference.get().getAverage();
     }
 
-    public void updateDownloadBytesPerSecMovingAverage(long speed) {
+    void updateDownloadBytesPerSecMovingAverage(long speed) {
         synchronized (downloadBytesPerSecMutex) {
             this.downloadBytesPerSecMovingAverageReference.get().record(speed);
         }
@@ -397,16 +397,21 @@ public class RemoteTranslogTransferTracker {
         return downloadTimeMsMovingAverageReference.get().isReady();
     }
 
-    public double getDownloadTimeMovingAverage() {
+    double getDownloadTimeMovingAverage() {
         return downloadTimeMsMovingAverageReference.get().getAverage();
     }
 
-    public void updateDownloadTimeMovingAverage(long duration) {
+    void updateDownloadTimeMovingAverage(long duration) {
         synchronized (downloadTimeMsMutex) {
             this.downloadTimeMsMovingAverageReference.get().record(duration);
         }
     }
 
+    /**
+     * Record stats related to a download from Remote Translog Store
+     * @param bytesBefore Number of downloadBytesSucceeded in this tracker before the download was started
+     * @param downloadStartTime System nano time when the download was started
+     */
     public void recordDownloadStats(long bytesBefore, long downloadStartTime) {
         long downloadEndTime = System.nanoTime();
         long downloadEndTimeMs = System.currentTimeMillis();
