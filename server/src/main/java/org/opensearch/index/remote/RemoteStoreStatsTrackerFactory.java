@@ -11,7 +11,6 @@ package org.opensearch.index.remote;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.opensearch.cluster.service.ClusterService;
-import org.opensearch.common.inject.Inject;
 import org.opensearch.common.settings.ClusterSettings;
 import org.opensearch.common.settings.Setting;
 import org.opensearch.common.settings.Settings;
@@ -53,7 +52,11 @@ public class RemoteStoreStatsTrackerFactory implements IndexEventListener {
      */
     private final Map<ShardId, RemoteSegmentTransferTracker> remoteSegmentTrackerMap = ConcurrentCollections.newConcurrentMap();
 
-    @Inject
+    /**
+     * Keeps map of remote-backed index shards and their corresponding stats tracker.
+     */
+    private final Map<ShardId, RemoteTranslogTransferTracker> remoteTranslogTrackerMap = ConcurrentCollections.newConcurrentMap();
+
     public RemoteStoreStatsTrackerFactory(ClusterService clusterService, Settings settings) {
         ClusterSettings clusterSettings = clusterService.getClusterSettings();
 
@@ -91,6 +94,10 @@ public class RemoteStoreStatsTrackerFactory implements IndexEventListener {
 
     public RemoteSegmentTransferTracker getRemoteSegmentTransferTracker(ShardId shardId) {
         return remoteSegmentTrackerMap.get(shardId);
+    }
+
+    public RemoteTranslogTransferTracker getRemoteTranslogTransferTracker(ShardId shardId) {
+        return remoteTranslogTrackerMap.get(shardId);
     }
 
     // visible for testing
