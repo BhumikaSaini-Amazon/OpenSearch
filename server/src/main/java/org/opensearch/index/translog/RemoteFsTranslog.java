@@ -346,6 +346,30 @@ public class RemoteFsTranslog extends Translog {
     }
 
     @Override
+    public TranslogStats stats() {
+        // acquire lock to make the two numbers roughly consistent (no file change half way)
+        try (ReleasableLock lock = readLock.acquire()) {
+            long uncommittedGen = getMinGenerationForSeqNo(deletionPolicy.getLocalCheckpointOfSafeCommit() + 1).translogFileGeneration;
+            RemoteTranslogStats remoteTranslogStats = new RemoteTranslogStats(
+                remoteTranslogTransferTracker.getTotalUploadsStarted(),
+                remoteTranslogTransferTracker.getTotalUploadsSucceeded(),
+                remoteTranslogTransferTracker.getTotalUploadsFailed(),
+                remoteTranslogTransferTracker.getUploadBytesStarted(),
+                remoteTranslogTransferTracker.getUploadBytesSucceeded(),
+                remoteTranslogTransferTracker.getUploadBytesFailed()
+            );
+            return new TranslogStats(
+                totalOperations(),
+                sizeInBytes(),
+                totalOperationsByMinGen(uncommittedGen),
+                sizeInBytesByMinGen(uncommittedGen),
+                earliestLastModifiedAge(),
+                remoteTranslogStats
+            );
+        }
+    }
+
+    @Override
     public void close() throws IOException {
         assert Translog.calledFromOutsideOrViaTragedyClose() : shardId
             + "Translog.close method is called from inside Translog, but not via closeOnTragicEvent method";

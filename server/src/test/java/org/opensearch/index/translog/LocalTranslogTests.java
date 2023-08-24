@@ -589,7 +589,8 @@ public class LocalTranslogTests extends OpenSearchTestCase {
                 randomIntBetween(1, 1 << 20),
                 randomIntBetween(1, 1 << 20),
                 randomIntBetween(1, 4096),
-                randomIntBetween(1, 1 << 20)
+                randomIntBetween(1, 1 << 20),
+                null
             );
             statsList.add(stats);
             total.add(stats);
@@ -612,21 +613,21 @@ public class LocalTranslogTests extends OpenSearchTestCase {
     }
 
     public void testNegativeNumberOfOperations() {
-        IllegalArgumentException e = expectThrows(IllegalArgumentException.class, () -> new TranslogStats(-1, 1, 1, 1, 1));
+        IllegalArgumentException e = expectThrows(IllegalArgumentException.class, () -> new TranslogStats(-1, 1, 1, 1, 1, null));
         assertThat(e, hasToString(containsString("numberOfOperations must be >= 0")));
-        e = expectThrows(IllegalArgumentException.class, () -> new TranslogStats(1, 1, -1, 1, 1));
+        e = expectThrows(IllegalArgumentException.class, () -> new TranslogStats(1, 1, -1, 1, 1, null));
         assertThat(e, hasToString(containsString("uncommittedOperations must be >= 0")));
     }
 
     public void testNegativeSizeInBytes() {
-        IllegalArgumentException e = expectThrows(IllegalArgumentException.class, () -> new TranslogStats(1, -1, 1, 1, 1));
+        IllegalArgumentException e = expectThrows(IllegalArgumentException.class, () -> new TranslogStats(1, -1, 1, 1, 1, null));
         assertThat(e, hasToString(containsString("translogSizeInBytes must be >= 0")));
-        e = expectThrows(IllegalArgumentException.class, () -> new TranslogStats(1, 1, 1, -1, 1));
+        e = expectThrows(IllegalArgumentException.class, () -> new TranslogStats(1, 1, 1, -1, 1, null));
         assertThat(e, hasToString(containsString("uncommittedSizeInBytes must be >= 0")));
     }
 
     public void testOldestEntryInSeconds() {
-        IllegalArgumentException e = expectThrows(IllegalArgumentException.class, () -> new TranslogStats(1, 1, 1, 1, -1));
+        IllegalArgumentException e = expectThrows(IllegalArgumentException.class, () -> new TranslogStats(1, 1, 1, 1, -1, null));
         assertThat(e, hasToString(containsString("earliestLastModifiedAge must be >= 0")));
     }
 

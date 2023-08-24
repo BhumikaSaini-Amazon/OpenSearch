@@ -877,7 +877,8 @@ public abstract class Translog extends AbstractIndexShardComponent implements In
                 sizeInBytes(),
                 totalOperationsByMinGen(uncommittedGen),
                 sizeInBytesByMinGen(uncommittedGen),
-                earliestLastModifiedAge()
+                earliestLastModifiedAge(),
+                null
             );
         }
     }
