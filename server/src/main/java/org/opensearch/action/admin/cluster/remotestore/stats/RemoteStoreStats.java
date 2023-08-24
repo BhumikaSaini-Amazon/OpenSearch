@@ -60,7 +60,7 @@ public class RemoteStoreStats implements Writeable, ToXContentFragment {
         return shardRouting;
     }
 
-    RemoteTranslogTransferTracker.Stats getTranslogStats() {
+    public RemoteTranslogTransferTracker.Stats getTranslogStats() {
         return remoteTranslogShardStats;
     }
 
