@@ -75,6 +75,8 @@ public class RemoteStoreStatsTrackerFactory implements IndexEventListener {
             new RemoteSegmentTransferTracker(shardId, indexShard.store().getDirectoryFileTransferTracker(), movingAverageWindowSize)
         );
         logger.trace("Created RemoteSegmentTransferTracker for shardId={}", shardId);
+        remoteTranslogTrackerMap.put(shardId, new RemoteTranslogTransferTracker(shardId, movingAverageWindowSize));
+        logger.trace("Created RemoteTranslogTransferTracker for shardId={}", shardId);
     }
 
     @Override
@@ -83,10 +85,16 @@ public class RemoteStoreStatsTrackerFactory implements IndexEventListener {
         if (remoteSegmentTransferTracker != null) {
             logger.trace("Deleted RemoteSegmentTransferTracker for shardId={}", shardId);
         }
+
+        RemoteTranslogTransferTracker remoteTranslogTransferTracker = remoteTranslogTrackerMap.remove(shardId);
+        if (remoteTranslogTransferTracker != null) {
+            logger.trace("Deleted RemoteTranslogTransferTracker for shardId={}", shardId);
+        }
     }
 
-    void updateMovingAverageWindowSize(int updatedSize) {
+    private void updateMovingAverageWindowSize(int updatedSize) {
         remoteSegmentTrackerMap.values().forEach(tracker -> tracker.updateMovingAverageWindowSize(updatedSize));
+        remoteTranslogTrackerMap.values().forEach(tracker -> tracker.updateMovingAverageWindowSize(updatedSize));
 
         // Update movingAverageWindowSize only if the trackers were successfully updated
         movingAverageWindowSize = updatedSize;

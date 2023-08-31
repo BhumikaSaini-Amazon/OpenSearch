@@ -102,7 +102,6 @@ public class TranslogTransferManager {
     public boolean transferSnapshot(TransferSnapshot transferSnapshot, TranslogTransferListener translogTransferListener)
         throws IOException {
         List<Exception> exceptionList = new ArrayList<>(transferSnapshot.getTranslogTransferMetadata().getCount());
-
         Set<TransferFileSnapshot> toUpload = new HashSet<>(transferSnapshot.getTranslogTransferMetadata().getCount());
 
         try {
@@ -110,11 +109,11 @@ public class TranslogTransferManager {
             toUpload.addAll(fileTransferTracker.exclusionFilter((transferSnapshot.getCheckpointFileSnapshots())));
             if (toUpload.isEmpty()) {
                 logger.trace("Nothing to upload for transfer");
-                translogTransferListener.onUploadComplete(transferSnapshot);
                 return true;
             }
 
             translogTransferListener.beforeUpload(transferSnapshot);
+            fileTransferTracker.recordFileTransferStartTime();
             final CountDownLatch latch = new CountDownLatch(toUpload.size());
             LatchedActionListener<TransferFileSnapshot> latchedActionListener = new LatchedActionListener<>(
                 ActionListener.wrap(fileTransferTracker::onSuccess, ex -> {
@@ -203,7 +202,6 @@ public class TranslogTransferManager {
         // Mark in FileTransferTracker so that the same files are not uploaded at the time of translog sync
         fileTransferTracker.add(fileName, true);
         remoteTranslogTransferTracker.addDownloadBytesSucceeded(bytesToRead);
-        remoteTranslogTransferTracker.incrementDownloadsSucceeded();
     }
 
     public TranslogTransferMetadata readMetadata() throws IOException {
@@ -219,7 +217,6 @@ public class TranslogTransferManager {
                     IndexInput indexInput = new ByteArrayIndexInput("metadata file", inputStream.readAllBytes());
                     metadataSetOnce.set(metadataStreamWrapper.readStream(indexInput));
                     remoteTranslogTransferTracker.addDownloadBytesSucceeded(bytesToRead);
-                    remoteTranslogTransferTracker.incrementDownloadsSucceeded();
                 } catch (IOException e) {
                     logger.error(() -> new ParameterizedMessage("Exception while reading metadata file: {}", filename), e);
                     exceptionSetOnce.set(e);

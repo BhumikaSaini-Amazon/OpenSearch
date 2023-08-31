@@ -91,8 +91,8 @@ public class RemoteFsTranslog extends Translog {
         logger = Loggers.getLogger(getClass(), shardId);
         this.blobStoreRepository = blobStoreRepository;
         this.primaryModeSupplier = primaryModeSupplier;
-        fileTransferTracker = new FileTransferTracker(shardId);
         this.remoteTranslogTransferTracker = remoteTranslogTransferTracker;
+        fileTransferTracker = new FileTransferTracker(shardId, remoteTranslogTransferTracker);
         this.translogTransferManager = buildTranslogTransferManager(
             blobStoreRepository,
             threadPool,
@@ -149,16 +149,16 @@ public class RemoteFsTranslog extends Translog {
             shardId
         );
         BlobStoreRepository blobStoreRepository = (BlobStoreRepository) repository;
-        FileTransferTracker fileTransferTracker = new FileTransferTracker(shardId);
-        // Below, we use a dummy stats tracker to ensure the flow doesn't break on first download of tlog files.
-        // This first download is to ensure the segment file corruption checks pass.
-        // These tlog files will get downloaded again for the actual tlog replay.
+        // We use a dummy stats tracker to ensure the flow doesn't break.
+        // TODO: To be revisited as part of https://github.com/opensearch-project/OpenSearch/issues/7567
+        RemoteTranslogTransferTracker remoteTranslogTransferTracker = new RemoteTranslogTransferTracker(shardId, 1000);
+        FileTransferTracker fileTransferTracker = new FileTransferTracker(shardId, remoteTranslogTransferTracker);
         TranslogTransferManager translogTransferManager = buildTranslogTransferManager(
             blobStoreRepository,
             threadPool,
             shardId,
             fileTransferTracker,
-            new RemoteTranslogTransferTracker(shardId, 1000)
+            remoteTranslogTransferTracker
         );
         RemoteFsTranslog.download(translogTransferManager, location, logger);
     }
@@ -170,6 +170,8 @@ public class RemoteFsTranslog extends Translog {
         long downloadStartTime = System.nanoTime();
         TranslogTransferMetadata translogMetadata = translogTransferManager.readMetadata();
         if (translogMetadata != null) {
+            long durationInMillis = (System.nanoTime() - downloadStartTime) / 1_000_000L;
+            statsTracker.addDownloadTimeInMillis(durationInMillis);
             if (Files.notExists(location)) {
                 Files.createDirectories(location);
             }
@@ -183,6 +185,8 @@ public class RemoteFsTranslog extends Translog {
             for (long i = translogMetadata.getGeneration(); i >= translogMetadata.getMinTranslogGeneration(); i--) {
                 String generation = Long.toString(i);
                 translogTransferManager.downloadTranslog(generationToPrimaryTermMapper.get(generation), generation, location);
+                durationInMillis = (System.nanoTime() - downloadStartTime) / 1_000_000L;
+                statsTracker.addDownloadTimeInMillis(durationInMillis);
             }
 
             statsTracker.recordDownloadStats(bytesBefore, downloadStartTime);
@@ -452,14 +456,16 @@ public class RemoteFsTranslog extends Translog {
     public static void cleanup(Repository repository, ShardId shardId, ThreadPool threadPool) throws IOException {
         assert repository instanceof BlobStoreRepository : "repository should be instance of BlobStoreRepository";
         BlobStoreRepository blobStoreRepository = (BlobStoreRepository) repository;
-        FileTransferTracker fileTransferTracker = new FileTransferTracker(shardId);
-        // Below, we use a dummy stats tracker to ensure the flow doesn't break.
+        // We use a dummy stats tracker to ensure the flow doesn't break.
+        // TODO: To be revisited as part of https://github.com/opensearch-project/OpenSearch/issues/7567
+        RemoteTranslogTransferTracker remoteTranslogTransferTracker = new RemoteTranslogTransferTracker(shardId, 1000);
+        FileTransferTracker fileTransferTracker = new FileTransferTracker(shardId, remoteTranslogTransferTracker);
         TranslogTransferManager translogTransferManager = buildTranslogTransferManager(
             blobStoreRepository,
             threadPool,
             shardId,
             fileTransferTracker,
-            new RemoteTranslogTransferTracker(shardId, 1000)
+            remoteTranslogTransferTracker
         );
         // clean up all remote translog files
         translogTransferManager.deleteTranslogFiles();
@@ -476,6 +482,8 @@ public class RemoteFsTranslog extends Translog {
     }
 
     /**
+     * TranslogTransferListener implementation for RemoteFsTranslog
+     *
      * @opensearch.internal
      */
     private class RemoteFsTranslogTransferListener implements TranslogTransferListener {
@@ -561,7 +569,6 @@ public class RemoteFsTranslog extends Translog {
         @Override
         public void onUploadFailed(TransferSnapshot transferSnapshot, Exception ex) throws IOException {
             if (toUpload != null && toUpload.size() > 0) {
-                uploadEndTime = System.nanoTime();
                 captureStatsOnUploadFailure();
             }
 
@@ -586,13 +593,11 @@ public class RemoteFsTranslog extends Translog {
          * Adds relevant stats to the tracker when an upload is successfully completed
          */
         private void captureStatsOnUploadSuccess() {
-            long uploadDurationInMillis = (uploadEndTime - uploadStartTime) / 1_000_000L;
             remoteTranslogTransferTracker.incrementUploadsSucceeded();
-            remoteTranslogTransferTracker.addUploadBytesSucceeded(uploadBytes);
-            remoteTranslogTransferTracker.addUploadTimeInMillis(uploadDurationInMillis);
             remoteTranslogTransferTracker.setLastSuccessfulUploadTimestamp(uploadEndTimeMs);
 
             remoteTranslogTransferTracker.updateUploadBytesMovingAverage(uploadBytes);
+            long uploadDurationInMillis = (uploadEndTime - uploadStartTime) / 1_000_000L;
             remoteTranslogTransferTracker.updateUploadTimeMovingAverage(uploadDurationInMillis);
             if (uploadDurationInMillis > 0) {
                 remoteTranslogTransferTracker.updateUploadBytesPerSecMovingAverage((uploadBytes * 1_000L) / uploadDurationInMillis);
@@ -603,22 +608,7 @@ public class RemoteFsTranslog extends Translog {
          * Adds relevant stats to the tracker when an upload has failed
          */
         private void captureStatsOnUploadFailure() {
-            remoteTranslogTransferTracker.addUploadTimeInMillis((uploadEndTime - uploadStartTime) / 1_000_000L);
-
-            Set<String> uploadedFiles = fileTransferTracker.allUploaded();
-            Set<FileSnapshot.TransferFileSnapshot> successfulUploads = new HashSet<>();
-            Set<FileSnapshot.TransferFileSnapshot> failedUploads = new HashSet<>();
-            for (FileSnapshot.TransferFileSnapshot file : toUpload) {
-                if (uploadedFiles.contains(file.getName())) {
-                    successfulUploads.add(file);
-                } else {
-                    failedUploads.add(file);
-                }
-            }
-
             remoteTranslogTransferTracker.incrementUploadsFailed();
-            remoteTranslogTransferTracker.addUploadBytesSucceeded(RemoteStoreUtils.getTotalBytes(successfulUploads));
-            remoteTranslogTransferTracker.addUploadBytesFailed(RemoteStoreUtils.getTotalBytes(failedUploads));
         }
     }
 }

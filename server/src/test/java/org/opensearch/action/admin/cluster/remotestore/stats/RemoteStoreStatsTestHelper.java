@@ -366,7 +366,7 @@ public class RemoteStoreStatsTestHelper {
                 )
             );
         } else {
-            assertNull(((Map<?, ?>) tlogUploadStatsObj.get(RemoteStoreStats.UploadStatsFields.TOTAL_UPLOADS)));
+            assertNull(tlogUploadStatsObj.get(RemoteStoreStats.UploadStatsFields.TOTAL_UPLOADS));
         }
 
         Map<?, ?> tlogDownloadStatsObj = (Map<?, ?>) tlogStatsObj.get(RemoteStoreStats.SubFields.DOWNLOAD);
@@ -415,7 +415,7 @@ public class RemoteStoreStatsTestHelper {
                 )
             );
         } else {
-            assertNull(((Map<?, ?>) tlogDownloadStatsObj.get(RemoteStoreStats.DownloadStatsFields.TOTAL_DOWNLOADS_IN_BYTES)));
+            assertNull(tlogDownloadStatsObj.get(RemoteStoreStats.DownloadStatsFields.TOTAL_DOWNLOADS_IN_BYTES));
         }
     }
 }

@@ -353,7 +353,7 @@ public class RemoteTranslogTransferTracker {
         return totalDownloadTimeInMillis.get();
     }
 
-    void addDownloadTimeInMillis(long duration) {
+    public void addDownloadTimeInMillis(long duration) {
         totalDownloadTimeInMillis.addAndGet(duration);
     }
 
@@ -419,11 +419,8 @@ public class RemoteTranslogTransferTracker {
         long bytesDownloaded = getDownloadBytesSucceeded() - bytesBefore;
 
         setLastSuccessfulDownloadTimestamp(downloadEndTimeMs);
+        incrementDownloadsSucceeded();
 
-        // We update the duration at the end of successfully downloading all of metadata, .tlog, .ckp
-        // files because this is not a file-level metric but a sync-level metric.
-        // This also ensures the bytes per sec moving average can be correlated.
-        addDownloadTimeInMillis(durationInMillis);
         updateDownloadBytesMovingAverage(bytesDownloaded);
         updateDownloadTimeMovingAverage(durationInMillis);
         if (durationInMillis > 0) {
@@ -623,31 +620,27 @@ public class RemoteTranslogTransferTracker {
         }
 
         public Stats(StreamInput in) throws IOException {
-            try {
-                this.shardId = new ShardId(in);
+            this.shardId = new ShardId(in);
 
-                this.lastSuccessfulUploadTimestamp = in.readVLong();
-                this.totalUploadsStarted = in.readVLong();
-                this.totalUploadsFailed = in.readVLong();
-                this.totalUploadsSucceeded = in.readVLong();
-                this.uploadBytesStarted = in.readVLong();
-                this.uploadBytesFailed = in.readVLong();
-                this.uploadBytesSucceeded = in.readVLong();
-                this.totalUploadTimeInMillis = in.readVLong();
-                this.uploadBytesMovingAverage = in.readDouble();
-                this.uploadBytesPerSecMovingAverage = in.readDouble();
-                this.uploadTimeMovingAverage = in.readDouble();
+            this.lastSuccessfulUploadTimestamp = in.readVLong();
+            this.totalUploadsStarted = in.readVLong();
+            this.totalUploadsFailed = in.readVLong();
+            this.totalUploadsSucceeded = in.readVLong();
+            this.uploadBytesStarted = in.readVLong();
+            this.uploadBytesFailed = in.readVLong();
+            this.uploadBytesSucceeded = in.readVLong();
+            this.totalUploadTimeInMillis = in.readVLong();
+            this.uploadBytesMovingAverage = in.readDouble();
+            this.uploadBytesPerSecMovingAverage = in.readDouble();
+            this.uploadTimeMovingAverage = in.readDouble();
 
-                this.lastSuccessfulDownloadTimestamp = in.readVLong();
-                this.totalDownloadsSucceeded = in.readVLong();
-                this.downloadBytesSucceeded = in.readVLong();
-                this.totalDownloadTimeInMillis = in.readVLong();
-                this.downloadBytesMovingAverage = in.readDouble();
-                this.downloadBytesPerSecMovingAverage = in.readDouble();
-                this.downloadTimeMovingAverage = in.readDouble();
-            } catch (IOException e) {
-                throw e;
-            }
+            this.lastSuccessfulDownloadTimestamp = in.readVLong();
+            this.totalDownloadsSucceeded = in.readVLong();
+            this.downloadBytesSucceeded = in.readVLong();
+            this.totalDownloadTimeInMillis = in.readVLong();
+            this.downloadBytesMovingAverage = in.readDouble();
+            this.downloadBytesPerSecMovingAverage = in.readDouble();
+            this.downloadTimeMovingAverage = in.readDouble();
         }
 
         @Override
@@ -681,7 +674,7 @@ public class RemoteTranslogTransferTracker {
             if (obj == null || getClass() != obj.getClass()) return false;
             RemoteTranslogTransferTracker.Stats other = (RemoteTranslogTransferTracker.Stats) obj;
 
-            return this.shardId.toString().equals(other.shardId.toString())
+            return this.shardId.equals(other.shardId)
                 && this.lastSuccessfulUploadTimestamp == other.lastSuccessfulUploadTimestamp
                 && this.totalUploadsStarted == other.totalUploadsStarted
                 && this.totalUploadsFailed == other.totalUploadsFailed

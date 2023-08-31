@@ -101,7 +101,7 @@ import static org.hamcrest.Matchers.greaterThan;
 
 @LuceneTestCase.SuppressFileSystems("ExtrasFS")
 
-public class RemoteFSTranslogTests extends OpenSearchTestCase {
+public class RemoteFsTranslogTests extends OpenSearchTestCase {
 
     protected final ShardId shardId = new ShardId("index", "_na_", 1);
 
@@ -260,12 +260,10 @@ public class RemoteFSTranslogTests extends OpenSearchTestCase {
 
     private static void assertUploadStatsNoFailures(RemoteTranslogTransferTracker statsTracker) {
         assertTrue(statsTracker.getUploadBytesStarted() > 0);
-        assertEquals(0, statsTracker.getUploadBytesFailed());
-        assertTrue(statsTracker.getUploadBytesSucceeded() > 0);
         assertTrue(statsTracker.getTotalUploadsStarted() > 0);
+
         assertEquals(0, statsTracker.getTotalUploadsFailed());
         assertTrue(statsTracker.getTotalUploadsSucceeded() > 0);
-        assertTrue(statsTracker.getTotalUploadTimeInMillis() > 0);
         assertTrue(statsTracker.getLastSuccessfulUploadTimestamp() > 0);
     }
 
@@ -1040,12 +1038,13 @@ public class RemoteFSTranslogTests extends OpenSearchTestCase {
         int count = 0;
         fail.failAlways();
         ArrayList<Translog.Location> locations = new ArrayList<>();
+        boolean shouldFailAlways = randomBoolean();
         for (int op = 0; op < translogOperations; op++) {
             int seqNo = ++count;
             final Translog.Location location = translog.add(
                 new Translog.Index("" + op, seqNo, primaryTerm.get(), Integer.toString(seqNo).getBytes(Charset.forName("UTF-8")))
             );
-            if (randomBoolean()) {
+            if (shouldFailAlways) {
                 fail.failAlways();
                 try {
                     translog.ensureSynced(location);
@@ -1070,6 +1069,20 @@ public class RemoteFSTranslogTests extends OpenSearchTestCase {
         for (Translog.Location location : locations) {
             assertFalse("all of the locations should be synced: " + location, translog.ensureSynced(location));
         }
+
+        RemoteTranslogTransferTracker statsTracker = translog.getRemoteTranslogTracker();
+        assertTrue(statsTracker.getUploadBytesStarted() > 0);
+        assertTrue(statsTracker.getTotalUploadsStarted() > 0);
+
+        if (shouldFailAlways) {
+            assertTrue(statsTracker.getTotalUploadsFailed() > 0);
+        } else {
+            assertEquals(0, statsTracker.getTotalUploadsFailed());
+        }
+
+        assertTrue(statsTracker.getTotalUploadsSucceeded() > 0);
+        assertTrue(statsTracker.getLastSuccessfulUploadTimestamp() > 0);
+        assertDownloadStatsNoDownloads(statsTracker);
     }
 
     public void testSyncUpToStream() throws IOException {

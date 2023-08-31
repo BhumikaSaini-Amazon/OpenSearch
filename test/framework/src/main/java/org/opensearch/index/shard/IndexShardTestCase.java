@@ -98,6 +98,7 @@ import org.opensearch.index.engine.NRTReplicationEngineFactory;
 import org.opensearch.index.mapper.MapperService;
 import org.opensearch.index.mapper.SourceToParse;
 import org.opensearch.index.remote.RemoteStoreStatsTrackerFactory;
+import org.opensearch.index.remote.RemoteTranslogTransferTracker;
 import org.opensearch.index.replication.TestReplicationSource;
 import org.opensearch.index.seqno.ReplicationTracker;
 import org.opensearch.index.seqno.RetentionLeaseSyncer;
@@ -666,9 +667,7 @@ public abstract class IndexShardTestCase extends OpenSearchTestCase {
                         () -> mockRepoSvc,
                         threadPool,
                         settings.getRemoteStoreTranslogRepository(),
-                        new RemoteStoreStatsTrackerFactory(clusterService, Settings.EMPTY).getRemoteTranslogTransferTracker(
-                            shardRouting.shardId()
-                        )
+                        new RemoteTranslogTransferTracker(shardRouting.shardId(), 20)
                     );
                 }
                 return new InternalTranslogFactory();

@@ -106,7 +106,10 @@ public class TranslogTransferManagerTests extends OpenSearchTestCase {
             return null;
         }).when(transferService).uploadBlobs(anySet(), anyMap(), any(ActionListener.class), any(WritePriority.class));
 
-        FileTransferTracker fileTransferTracker = new FileTransferTracker(new ShardId("index", "indexUUid", 0)) {
+        FileTransferTracker fileTransferTracker = new FileTransferTracker(
+            new ShardId("index", "indexUUid", 0),
+            remoteTranslogTransferTracker
+        ) {
             @Override
             public void onSuccess(TransferFileSnapshot fileSnapshot) {
                 fileTransferSucceeded.incrementAndGet();
@@ -253,7 +256,6 @@ public class TranslogTransferManagerTests extends OpenSearchTestCase {
 
         assertEquals(metadata, translogTransferManager.readMetadata());
         assertEquals(translogTransferManager.getMetadataBytes(metadata).length, remoteTranslogTransferTracker.getDownloadBytesSucceeded());
-        assertEquals(1, remoteTranslogTransferTracker.getTotalDownloadsSucceeded());
     }
 
     public void testReadMetadataReadException() throws IOException {
@@ -322,7 +324,7 @@ public class TranslogTransferManagerTests extends OpenSearchTestCase {
             shardId,
             transferService,
             remoteBaseTransferPath,
-            new FileTransferTracker(new ShardId("index", "indexUuid", 0)),
+            new FileTransferTracker(new ShardId("index", "indexUuid", 0), remoteTranslogTransferTracker),
             remoteTranslogTransferTracker
         );
 
@@ -340,11 +342,10 @@ public class TranslogTransferManagerTests extends OpenSearchTestCase {
         assertTrue(Files.exists(location.resolve("translog-23.tlog")));
         assertTrue(Files.exists(location.resolve("translog-23.ckp")));
         assertTrue(remoteTranslogTransferTracker.getDownloadBytesSucceeded() > 0);
-        assertEquals(2, remoteTranslogTransferTracker.getTotalDownloadsSucceeded());
     }
 
     public void testDownloadTranslogAlreadyExists() throws IOException {
-        FileTransferTracker tracker = new FileTransferTracker(new ShardId("index", "indexUuid", 0));
+        FileTransferTracker tracker = new FileTransferTracker(new ShardId("index", "indexUuid", 0), remoteTranslogTransferTracker);
         Path location = createTempDir();
         Files.createFile(location.resolve("translog-23.tlog"));
         Files.createFile(location.resolve("translog-23.ckp"));
@@ -371,11 +372,10 @@ public class TranslogTransferManagerTests extends OpenSearchTestCase {
         assertTrue(Files.exists(location.resolve("translog-23.tlog")));
         assertTrue(Files.exists(location.resolve("translog-23.ckp")));
         assertTrue(remoteTranslogTransferTracker.getDownloadBytesSucceeded() > 0);
-        assertEquals(2, remoteTranslogTransferTracker.getTotalDownloadsSucceeded());
     }
 
     public void testDownloadTranslogWithTrackerUpdated() throws IOException {
-        FileTransferTracker tracker = new FileTransferTracker(new ShardId("index", "indexUuid", 0));
+        FileTransferTracker tracker = new FileTransferTracker(new ShardId("index", "indexUuid", 0), remoteTranslogTransferTracker);
         Path location = createTempDir();
         String translogFile = "translog-23.tlog", checkpointFile = "translog-23.ckp";
         Files.createFile(location.resolve(translogFile));
@@ -412,11 +412,10 @@ public class TranslogTransferManagerTests extends OpenSearchTestCase {
         tracker.add(checkpointFile, true);
 
         assertTrue(remoteTranslogTransferTracker.getDownloadBytesSucceeded() > 0);
-        assertEquals(2, remoteTranslogTransferTracker.getTotalDownloadsSucceeded());
     }
 
     public void testDeleteTranslogSuccess() throws Exception {
-        FileTransferTracker tracker = new FileTransferTracker(new ShardId("index", "indexUuid", 0));
+        FileTransferTracker tracker = new FileTransferTracker(new ShardId("index", "indexUuid", 0), remoteTranslogTransferTracker);
         BlobStore blobStore = mock(BlobStore.class);
         BlobContainer blobContainer = mock(BlobContainer.class);
         when(blobStore.blobContainer(any(BlobPath.class))).thenReturn(blobContainer);
@@ -485,7 +484,7 @@ public class TranslogTransferManagerTests extends OpenSearchTestCase {
     }
 
     public void testDeleteTranslogFailure() throws Exception {
-        FileTransferTracker tracker = new FileTransferTracker(new ShardId("index", "indexUuid", 0));
+        FileTransferTracker tracker = new FileTransferTracker(new ShardId("index", "indexUuid", 0), remoteTranslogTransferTracker);
         BlobStore blobStore = mock(BlobStore.class);
         BlobContainer blobContainer = mock(BlobContainer.class);
         doAnswer(invocation -> { throw new IOException("test exception"); }).when(blobStore).blobContainer(any(BlobPath.class));
