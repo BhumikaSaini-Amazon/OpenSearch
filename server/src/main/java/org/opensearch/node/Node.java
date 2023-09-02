@@ -742,7 +742,6 @@ public class Node implements Closeable {
             );
 
             remoteStoreStatsTrackerFactory = new RemoteStoreStatsTrackerFactory(clusterService, settings);
-
             final IndicesService indicesService = new IndicesService(
                 settings,
                 pluginsService,
