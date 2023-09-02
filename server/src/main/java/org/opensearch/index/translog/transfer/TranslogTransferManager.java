@@ -112,7 +112,7 @@ public class TranslogTransferManager {
                 return true;
             }
 
-            translogTransferListener.beforeUpload(transferSnapshot);
+            translogTransferListener.beforeUpload(toUpload);
             fileTransferTracker.recordFileTransferStartTime();
             final CountDownLatch latch = new CountDownLatch(toUpload.size());
             LatchedActionListener<TransferFileSnapshot> latchedActionListener = new LatchedActionListener<>(
@@ -193,10 +193,12 @@ public class TranslogTransferManager {
         }
 
         long bytesToRead;
+        long downloadStartTime = System.nanoTime();
         try (InputStream inputStream = transferService.downloadBlob(remoteDataTransferPath.add(primaryTerm), fileName)) {
             // Capture number of bytes for stats before reading
             bytesToRead = inputStream.available();
             Files.copy(inputStream, filePath);
+            remoteTranslogTransferTracker.addDownloadTimeInMillis((System.nanoTime() - downloadStartTime) / 1_000_000L);
         }
 
         // Mark in FileTransferTracker so that the same files are not uploaded at the time of translog sync
@@ -212,16 +214,20 @@ public class TranslogTransferManager {
             ActionListener.wrap(blobMetadataList -> {
                 if (blobMetadataList.isEmpty()) return;
                 String filename = blobMetadataList.get(0).name();
+                long bytesToRead = 0;
+                long downloadStartTime = System.nanoTime();
                 try (InputStream inputStream = transferService.downloadBlob(remoteMetadataTransferPath, filename)) {
                     // Capture number of bytes for stats before reading
-                    long bytesToRead = inputStream.available();
+                    bytesToRead = inputStream.available();
                     IndexInput indexInput = new ByteArrayIndexInput("metadata file", inputStream.readAllBytes());
                     metadataSetOnce.set(metadataStreamWrapper.readStream(indexInput));
-                    remoteTranslogTransferTracker.addDownloadBytesSucceeded(bytesToRead);
+                    remoteTranslogTransferTracker.addDownloadTimeInMillis((System.nanoTime() - downloadStartTime) / 1_000_000L);
                 } catch (IOException e) {
                     logger.error(() -> new ParameterizedMessage("Exception while reading metadata file: {}", filename), e);
                     exceptionSetOnce.set(e);
                 }
+
+                remoteTranslogTransferTracker.addDownloadBytesSucceeded(bytesToRead);
             }, e -> {
                 logger.error(() -> new ParameterizedMessage("Exception while listing metadata files"), e);
                 exceptionSetOnce.set((IOException) e);

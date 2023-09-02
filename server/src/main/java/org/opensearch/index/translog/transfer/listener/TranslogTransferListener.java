@@ -8,9 +8,11 @@
 
 package org.opensearch.index.translog.transfer.listener;
 
+import org.opensearch.index.translog.transfer.FileSnapshot;
 import org.opensearch.index.translog.transfer.TransferSnapshot;
 
 import java.io.IOException;
+import java.util.Set;
 
 /**
  * The listener to be invoked on the completion or failure of a {@link TransferSnapshot}
@@ -20,9 +22,9 @@ import java.io.IOException;
 public interface TranslogTransferListener {
     /**
      * Invoked before the transfer of {@link TransferSnapshot}
-     * @param transferSnapshot the transfer snapshot
+     * @param toUpload the set of files to upload
      */
-    void beforeUpload(TransferSnapshot transferSnapshot) throws IOException;
+    void beforeUpload(Set<FileSnapshot.TransferFileSnapshot> toUpload) throws IOException;
 
     /**
      * Invoked when the transfer of {@link TransferSnapshot} succeeds
