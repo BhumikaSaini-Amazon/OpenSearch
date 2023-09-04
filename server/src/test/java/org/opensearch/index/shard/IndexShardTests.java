@@ -4914,11 +4914,11 @@ public class IndexShardTests extends IndexShardTestCase {
     }
 
     private void populateSampleRemoteTranslogStats(RemoteTranslogTransferTracker tracker) {
-        tracker.incrementUploadsStarted();
-        tracker.incrementUploadsStarted();
-        tracker.incrementUploadsStarted();
-        tracker.incrementUploadsSucceeded();
-        tracker.incrementUploadsFailed();
+        tracker.incrementTotalUploadsStarted();
+        tracker.incrementTotalUploadsStarted();
+        tracker.incrementTotalUploadsStarted();
+        tracker.incrementTotalUploadsSucceeded();
+        tracker.incrementTotalUploadsFailed();
         int bytesStarted = randomIntBetween(100, 1000);
         tracker.addUploadBytesStarted(bytesStarted);
         tracker.addUploadBytesSucceeded(randomIntBetween(1, bytesStarted / 2));
