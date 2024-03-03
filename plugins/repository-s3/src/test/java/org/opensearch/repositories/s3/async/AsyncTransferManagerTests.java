@@ -44,6 +44,7 @@ import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static org.mockito.ArgumentMatchers.any;
@@ -66,13 +67,7 @@ public class AsyncTransferManagerTests extends OpenSearchTestCase {
             Executors.newSingleThreadExecutor(),
             Executors.newSingleThreadExecutor(),
             Executors.newSingleThreadExecutor(),
-            new PermitBackedRetryableFutureUtils<>(
-                3,
-                Math.max(Runtime.getRuntime().availableProcessors() * 5, 10),
-                0.7,
-                Executors.newSingleThreadExecutor(),
-                Executors.newSingleThreadScheduledExecutor()
-            )
+            new TransferSemaphoresHolder(3, Math.max(Runtime.getRuntime().availableProcessors() * 5, 10), 5, TimeUnit.MINUTES)
         );
         super.setUp();
     }

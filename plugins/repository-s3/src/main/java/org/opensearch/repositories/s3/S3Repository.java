@@ -52,6 +52,7 @@ import org.opensearch.common.settings.SecureSetting;
 import org.opensearch.common.settings.Setting;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.unit.TimeValue;
+import org.opensearch.common.util.concurrent.OpenSearchExecutors;
 import org.opensearch.core.action.ActionListener;
 import org.opensearch.core.common.Strings;
 import org.opensearch.core.common.settings.SecureString;
@@ -66,6 +67,7 @@ import org.opensearch.repositories.ShardGenerations;
 import org.opensearch.repositories.blobstore.MeteredBlobStoreRepository;
 import org.opensearch.repositories.s3.async.AsyncExecutorContainer;
 import org.opensearch.repositories.s3.async.AsyncTransferManager;
+import org.opensearch.repositories.s3.async.SizeBasedBlockingQ;
 import org.opensearch.snapshots.SnapshotId;
 import org.opensearch.snapshots.SnapshotInfo;
 import org.opensearch.snapshots.SnapshotsService;
@@ -217,6 +219,27 @@ class S3Repository extends MeteredBlobStoreRepository {
     );
 
     /**
+     * Duration in minutes to wait for a permit in case no permit is available.
+     */
+    public static Setting<Integer> S3_PERMIT_WAIT_DURATION_MIN = Setting.intSetting(
+        "s3_permit_wait_duration_min",
+        5,
+        1,
+        10,
+        Setting.Property.NodeScope
+    );
+
+    /**
+     * Number of transfer queue consumers
+     */
+    public static Setting<Integer> S3_TRANSFER_QUEUE_CONSUMERS = new Setting<>(
+        "s3_transfer_queue_consumers",
+        (s) -> Integer.toString(Math.max(5, OpenSearchExecutors.allocatedProcessors(s) * 2)),
+        (s) -> Setting.parseInt(s, 5, "s3_transfer_queue_consumers"),
+        Setting.Property.NodeScope
+    );
+
+    /**
      * Big files can be broken down into chunks during snapshotting if needed. Defaults to 1g.
      */
     static final Setting<ByteSizeValue> CHUNK_SIZE_SETTING = Setting.byteSizeSetting(
@@ -299,6 +322,8 @@ class S3Repository extends MeteredBlobStoreRepository {
     private final AsyncExecutorContainer priorityExecutorBuilder;
     private final AsyncExecutorContainer normalExecutorBuilder;
     private final Path pluginConfigPath;
+    private final SizeBasedBlockingQ otherPrioritySizeBasedBlockingQ;
+    private final SizeBasedBlockingQ lowPrioritySizeBasedBlockingQ;
 
     private volatile int bulkDeletesSize;
 
@@ -314,7 +339,9 @@ class S3Repository extends MeteredBlobStoreRepository {
         final AsyncExecutorContainer priorityExecutorBuilder,
         final AsyncExecutorContainer normalExecutorBuilder,
         final S3AsyncService s3AsyncService,
-        final boolean multipartUploadEnabled
+        final boolean multipartUploadEnabled,
+        final SizeBasedBlockingQ otherPrioritySizeBasedBlockingQ,
+        final SizeBasedBlockingQ lowPrioritySizeBasedBlockingQ
     ) {
         this(
             metadata,
@@ -328,7 +355,9 @@ class S3Repository extends MeteredBlobStoreRepository {
             normalExecutorBuilder,
             s3AsyncService,
             multipartUploadEnabled,
-            Path.of("")
+            Path.of(""),
+            otherPrioritySizeBasedBlockingQ,
+            lowPrioritySizeBasedBlockingQ
         );
     }
 
@@ -347,7 +376,9 @@ class S3Repository extends MeteredBlobStoreRepository {
         final AsyncExecutorContainer normalExecutorBuilder,
         final S3AsyncService s3AsyncService,
         final boolean multipartUploadEnabled,
-        Path pluginConfigPath
+        Path pluginConfigPath,
+        final SizeBasedBlockingQ otherPrioritySizeBasedBlockingQ,
+        final SizeBasedBlockingQ lowPrioritySizeBasedBlockingQ
     ) {
         super(metadata, namedXContentRegistry, clusterService, recoverySettings, buildLocation(metadata));
         this.service = service;
@@ -358,6 +389,8 @@ class S3Repository extends MeteredBlobStoreRepository {
         this.urgentExecutorBuilder = urgentExecutorBuilder;
         this.priorityExecutorBuilder = priorityExecutorBuilder;
         this.normalExecutorBuilder = normalExecutorBuilder;
+        this.otherPrioritySizeBasedBlockingQ = otherPrioritySizeBasedBlockingQ;
+        this.lowPrioritySizeBasedBlockingQ = lowPrioritySizeBasedBlockingQ;
 
         validateRepositoryMetadata(metadata);
         readRepositoryMetadata();
@@ -475,7 +508,9 @@ class S3Repository extends MeteredBlobStoreRepository {
             asyncUploadUtils,
             urgentExecutorBuilder,
             priorityExecutorBuilder,
-            normalExecutorBuilder
+            normalExecutorBuilder,
+            otherPrioritySizeBasedBlockingQ,
+            lowPrioritySizeBasedBlockingQ
         );
     }
 
