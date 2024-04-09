@@ -3702,7 +3702,7 @@ public class IndexShard extends AbstractIndexShardComponent implements IndicesCl
         RepositoriesService repositoriesService,
         Consumer<MappingMetadata> mappingUpdateConsumer,
         IndicesService indicesService
-    ) {
+    ) throws IOException {
         // TODO: Create a proper object to encapsulate the recovery context
         // all of the current methods here follow a pattern of:
         // resolve context which isn't really dependent on the local shards and then async
