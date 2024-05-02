@@ -191,7 +191,8 @@ class S3BlobContainer extends AbstractBlobContainer implements AsyncMultiStreamB
             writeContext.getUploadFinalizer(),
             writeContext.doRemoteDataIntegrityCheck(),
             writeContext.getExpectedChecksum(),
-            blobStore.isUploadRetryEnabled()
+            blobStore.isUploadRetryEnabled(),
+            null
         );
         try {
             // If file size is greater than the queue capacity than SizeBasedBlockingQ will always reject the upload.
